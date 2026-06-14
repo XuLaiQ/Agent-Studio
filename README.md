@@ -540,3 +540,4 @@ Agent Studio 的目标是打造一个类似 Cursor + Claude Code + Codex CLI 的
 > 一个项目，多个 Agent，真实终端，自主协作。
 
 让开发者能够在同一个本地项目中同时调度多个 AI 编码助手，完成分析、开发、审查与优化工作。
+"# Agent-Studio"
