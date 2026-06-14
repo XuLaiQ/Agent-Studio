@@ -1,0 +1,41 @@
+:root {
+  --bg: #1e1e2e;
+  --bg-soft: #252537;
+  --bg-panel: #2a2a3c;
+  --border: #3a3a4f;
+  --text: #cdd6f4;
+  --text-dim: #9399b2;
+  --accent: #89b4fa;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.row {
+  display: flex;
+}
+
+/* Make Element Plus blend into the dark theme without pulling in the full dark
+   theme bundle — a few targeted overrides are enough for the MVP. */
+.app-shell {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

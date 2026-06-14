@@ -1,0 +1,41 @@
+appId: com.agentstudio.app
+productName: Agent Studio
+copyright: Copyright © 2026 Agent Studio
+
+directories:
+  output: release
+  buildResources: build
+
+# Keep everything by default (electron-builder auto-prunes devDependencies),
+# but drop source and config that the packaged app never needs.
+files:
+  - out/**/*
+  - package.json
+  - '!**/{.vscode,src,.idea}'
+  - '!**/{electron.vite.config.ts,electron-builder.yml}'
+  - '!**/{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+
+# Native module (@lydell/node-pty ships .node binaries) must live outside the
+# asar archive so it can be loaded at runtime.
+asarUnpack:
+  - '**/*.node'
+  - '**/@lydell/node-pty*/**'
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-Setup.${ext}
+  icon: build/icon.ico   # drop a 256x256 .ico here to customize
+
+# NSIS = a normal install wizard (not a silent one-click installer).
+nsis:
+  oneClick: false                       # show the full wizard
+  perMachine: false                     # default to per-user (no admin prompt)
+  allowElevation: true                  # allow switching to all-users if chosen
+  allowToChangeInstallationDirectory: true   # <-- lets the user pick the install path
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Agent Studio
+  deleteAppDataOnUninstall: false

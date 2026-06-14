@@ -1,0 +1,92 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useStudioStore } from '../stores/studio'
+import { t } from '../i18n'
+import { AGENT_COMMANDS, type AgentType } from '@shared/types'
+
+const store = useStudioStore()
+const visible = ref(false)
+const selected = ref<AgentType>('claude')
+const name = ref('')
+
+const options = (Object.keys(AGENT_COMMANDS) as AgentType[]).map((type) => ({
+  type,
+  label: AGENT_COMMANDS[type].label,
+  command: AGENT_COMMANDS[type].command
+}))
+
+function open(): void {
+  selected.value = 'claude'
+  name.value = ''
+  visible.value = true
+}
+
+async function confirm(): Promise<void> {
+  await store.createAgent(selected.value, name.value)
+  visible.value = false
+}
+
+defineExpose({ open })
+</script>
+
+<template>
+  <el-dialog v-model="visible" :title="t('dialog.addAgent.title')" width="440px" align-center>
+    <div class="grid">
+      <div
+        v-for="opt in options"
+        :key="opt.type"
+        class="card"
+        :class="{ active: selected === opt.type }"
+        @click="selected = opt.type"
+      >
+        <div class="card-label">{{ opt.label }}</div>
+        <code class="card-cmd">{{ opt.command }}</code>
+      </div>
+    </div>
+
+    <el-input
+      v-model="name"
+      class="name-input"
+      :placeholder="t('dialog.addAgent.namePlaceholder')"
+    />
+
+    <template #footer>
+      <el-button @click="visible = false">{{ t('common.cancel') }}</el-button>
+      <el-button type="primary" @click="confirm">{{ t('dialog.create') }}</el-button>
+    </template>
+  </el-dialog>
+</template>
+
+<style scoped>
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.card {
+  border: 1px solid var(--el-border-color, #dcdfe6);
+  border-radius: 8px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.card:hover {
+  border-color: var(--el-color-primary);
+}
+.card.active {
+  border-color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+}
+.card-label {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+.card-cmd {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.name-input {
+  margin-top: 14px;
+}
+</style>
