@@ -38,6 +38,13 @@ function startSession(): void {
   })
 }
 
+function pasteClipboard(): void {
+  const text = window.studio.readClipboardText()
+  if (!text) return
+
+  window.studio.writePty(props.agent.id, text)
+}
+
 onMounted(() => {
   if (!host.value) return
 
@@ -57,6 +64,20 @@ onMounted(() => {
   term.loadAddon(fit)
   term.open(host.value)
   doFit()
+
+  term.attachCustomKeyEventHandler((event) => {
+    if (
+      event.type === 'keydown' &&
+      event.key.toLowerCase() === 'v' &&
+      (event.ctrlKey || event.metaKey)
+    ) {
+      event.preventDefault()
+      pasteClipboard()
+      return false
+    }
+
+    return true
+  })
 
   // User keystrokes -> PTY
   term.onData((data) => window.studio.writePty(props.agent.id, data))
@@ -98,11 +119,22 @@ function restart(): void {
   started = false
   startSession()
 }
+
+function copySelection(event: MouseEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+
+  const selection = term?.getSelection()
+  if (!selection) return
+
+  window.studio.writeClipboardText(selection)
+  term?.focus()
+}
 </script>
 
 <template>
   <div class="term-wrap">
-    <div ref="host" class="term-host" @click="term?.focus()" />
+    <div ref="host" class="term-host" @click="term?.focus()" @contextmenu="copySelection" />
     <button class="restart" :title="t('terminal.restart')" @click="restart">↻</button>
   </div>
 </template>

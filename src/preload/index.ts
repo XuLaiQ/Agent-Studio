@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { clipboard, contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type {
   Project,
   Agent,
@@ -24,6 +24,10 @@ const api = {
 
   // File tree
   readDir: (dirPath: string): Promise<FileNode[]> => ipcRenderer.invoke('fs:readdir', dirPath),
+
+  // Clipboard
+  readClipboardText: (): string => clipboard.readText(),
+  writeClipboardText: (text: string): void => clipboard.writeText(text),
 
   // PTY control
   startPty: (input: PtyStartInput): void => ipcRenderer.send('pty:start', input),
