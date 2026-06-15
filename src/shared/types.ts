@@ -61,6 +61,15 @@ export interface VersionBranch {
   upstream?: string
 }
 
+export interface VersionCommitLog {
+  hash: string
+  shortHash: string
+  subject: string
+  author: string
+  date: string
+  relativeDate: string
+}
+
 export interface ProjectVersionStatus {
   projectId: string
   projectName: string
@@ -75,6 +84,7 @@ export interface ProjectVersionStatus {
   remoteBranches: VersionBranch[]
   dirty?: boolean
   lastCommit?: string
+  commitHistory: VersionCommitLog[]
   changes: VersionFileChange[]
   error?: string
 }

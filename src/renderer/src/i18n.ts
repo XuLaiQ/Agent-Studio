@@ -99,6 +99,8 @@ const messages: Record<Locale, Dict> = {
     'version.branch.create': 'Create branch',
     'version.branch.required': 'Branch name is required',
     'version.branch.created': 'Branch created',
+    'version.commitHistory': 'Commit history',
+    'version.noCommitHistory': 'No commits yet.',
 
     'workspace.placeholder': 'Import a project on the left to get started.',
     'workspace.noAgents': 'No agents yet. Click {action} to launch a CLI.',
@@ -211,7 +213,9 @@ const zhFallbackMessages: Dict = {
   'version.branch.placeholder': '新建分支',
   'version.branch.create': '创建分支',
   'version.branch.required': '请填写分支名',
-  'version.branch.created': '分支已创建'
+  'version.branch.created': '分支已创建',
+  'version.commitHistory': '提交历史',
+  'version.noCommitHistory': '暂无提交记录。'
 }
 
 /** Interpolate {placeholder} tokens with values from `vars`. */

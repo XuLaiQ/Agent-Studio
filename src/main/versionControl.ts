@@ -7,6 +7,7 @@ import type {
   VersionBranch,
   VersionBranchInput,
   VersionCreateBranchInput,
+  VersionCommitLog,
   VersionCommitInput,
   VersionFileChange,
   VersionFileInput,
@@ -129,6 +130,25 @@ function parseRemoteBranches(output: string): VersionBranch[] {
     }))
 }
 
+function parseCommitHistory(output: string): VersionCommitLog[] {
+  return output
+    .split(/\r?\n/)
+    .map((line) => {
+      const [hash, shortHash, author, date, relativeDate, subject] = line.split('\x1f')
+      if (!hash || !subject) return null
+
+      return {
+        hash,
+        shortHash,
+        author,
+        date,
+        relativeDate,
+        subject
+      }
+    })
+    .filter((commit): commit is VersionCommitLog => Boolean(commit))
+}
+
 async function detectTool(tool: 'git' | 'gh' | 'glab'): Promise<VersionToolStatus> {
   try {
     const path = firstLine(await run('where.exe', [tool]))
@@ -155,7 +175,8 @@ async function scanProject(project: Project): Promise<ProjectVersionStatus> {
       branchOutput,
       remoteBranchOutput,
       upstreamOutput,
-      trackingOutput
+      trackingOutput,
+      commitHistoryOutput
     ] = await Promise.all([
       run('git', ['-C', project.path, 'branch', '--show-current']).catch(() => ''),
       run('git', ['-C', project.path, 'remote', '-v']).catch(() => ''),
@@ -168,7 +189,16 @@ async function scanProject(project: Project): Promise<ProjectVersionStatus> {
       ),
       run('git', ['-C', project.path, 'rev-list', '--left-right', '--count', '@{u}...HEAD']).catch(
         () => ''
-      )
+      ),
+      run('git', [
+        '-C',
+        project.path,
+        'log',
+        '-n',
+        '30',
+        '--date=iso',
+        '--pretty=format:%H%x1f%h%x1f%an%x1f%ad%x1f%ar%x1f%s'
+      ]).catch(() => '')
     ])
     const tracking = parseAheadBehind(trackingOutput, upstreamOutput)
 
@@ -186,6 +216,7 @@ async function scanProject(project: Project): Promise<ProjectVersionStatus> {
       remoteBranches: parseRemoteBranches(remoteBranchOutput),
       dirty: dirtyOutput.length > 0,
       lastCommit: lastCommit || undefined,
+      commitHistory: parseCommitHistory(commitHistoryOutput),
       changes: parseChanges(dirtyOutput)
     }
   } catch (err) {
@@ -199,6 +230,7 @@ async function scanProject(project: Project): Promise<ProjectVersionStatus> {
       remoteBranches: [],
       ahead: 0,
       behind: 0,
+      commitHistory: [],
       changes: [],
       error: err instanceof Error ? err.message : String(err)
     }

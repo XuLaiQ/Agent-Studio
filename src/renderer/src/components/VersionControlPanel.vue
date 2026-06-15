@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useVersionControlStore } from '../stores/versionControl'
@@ -185,6 +185,11 @@ onMounted(() => {
         <circle cx="12" cy="12" r="2" />
         <path d="M4 6v2a4 4 0 0 0 4 4h2" />
       </symbol>
+      <symbol id="vc-history" viewBox="0 0 16 16">
+        <path d="M3 3v4h4" />
+        <path d="M3.6 7A5 5 0 1 0 5 3.6" />
+        <path d="M8 5.5V8l2 1.3" />
+      </symbol>
     </svg>
 
     <div class="section-head">
@@ -235,45 +240,9 @@ onMounted(() => {
         </button>
       </div>
 
-      <details class="details" open>
-        <summary>{{ t('version.localBranches') }} · {{ activeStatus.localBranches.length }}</summary>
-        <button
-          v-for="branch in activeStatus.localBranches"
-          :key="branch.name"
-          class="branch-row"
-          type="button"
-          :class="{ current: branch.current }"
-          @click="checkout(branch)"
-        >
-          <svg><use href="#vc-branch" /></svg>
-          <span>{{ branch.name }}</span>
-          <small v-if="branch.upstream">{{ branch.upstream }}</small>
-        </button>
-        <div class="branch-create">
-          <input v-model="newBranchName" :placeholder="t('version.branch.placeholder')" @keyup.enter="createBranch" />
-          <button class="icon-action" type="button" :title="t('version.branch.create')" @click="createBranch">
-            <svg><use href="#vc-plus" /></svg>
-          </button>
-        </div>
-      </details>
-
-      <details class="details">
-        <summary>{{ t('version.remoteBranches') }} · {{ activeStatus.remoteBranches.length }}</summary>
-        <button
-          v-for="branch in activeStatus.remoteBranches"
-          :key="branch.name"
-          class="branch-row"
-          type="button"
-          @click="checkout(branch)"
-        >
-          <svg><use href="#vc-branch" /></svg>
-          <span>{{ branch.name }}</span>
-        </button>
-      </details>
-
       <div class="group">
         <div class="group-head">
-          <span>{{ t('version.staged') }} · {{ versionStore.stagedChanges.length }}</span>
+          <span>{{ t('version.staged') }} 路 {{ versionStore.stagedChanges.length }}</span>
           <button
             v-if="versionStore.stagedChanges.length"
             class="icon-action"
@@ -303,7 +272,7 @@ onMounted(() => {
 
       <div class="group">
         <div class="group-head">
-          <span>{{ t('version.changes') }} · {{ versionStore.unstagedChanges.length }}</span>
+          <span>{{ t('version.changes') }} 路 {{ versionStore.unstagedChanges.length }}</span>
           <button
             v-if="versionStore.unstagedChanges.length"
             class="icon-action"
@@ -330,15 +299,74 @@ onMounted(() => {
           <span class="row-action">{{ t('version.stage') }}</span>
         </button>
       </div>
+
+      <details class="details" open>
+        <summary>{{ t('version.localBranches') }} 路 {{ activeStatus.localBranches.length }}</summary>
+        <button
+          v-for="branch in activeStatus.localBranches"
+          :key="branch.name"
+          class="branch-row"
+          type="button"
+          :class="{ current: branch.current }"
+          @click="checkout(branch)"
+        >
+          <svg><use href="#vc-branch" /></svg>
+          <span>{{ branch.name }}</span>
+          <small v-if="branch.upstream">{{ branch.upstream }}</small>
+        </button>
+        <div class="branch-create">
+          <input v-model="newBranchName" :placeholder="t('version.branch.placeholder')" @keyup.enter="createBranch" />
+          <button class="icon-action" type="button" :title="t('version.branch.create')" @click="createBranch">
+            <svg><use href="#vc-plus" /></svg>
+          </button>
+        </div>
+      </details>
+
+      <details class="details">
+        <summary>{{ t('version.remoteBranches') }} 路 {{ activeStatus.remoteBranches.length }}</summary>
+        <button
+          v-for="branch in activeStatus.remoteBranches"
+          :key="branch.name"
+          class="branch-row"
+          type="button"
+          @click="checkout(branch)"
+        >
+          <svg><use href="#vc-branch" /></svg>
+          <span>{{ branch.name }}</span>
+        </button>
+      </details>
+
+      <details class="details" open>
+        <summary>{{ t('version.commitHistory') }} 路 {{ activeStatus.commitHistory.length }}</summary>
+        <div v-if="!activeStatus.commitHistory.length" class="empty small">
+          {{ t('version.noCommitHistory') }}
+        </div>
+        <div
+          v-for="commit in activeStatus.commitHistory"
+          :key="commit.hash"
+          class="commit-row"
+          :title="`${commit.hash} ${commit.subject}`"
+        >
+          <svg><use href="#vc-history" /></svg>
+          <div class="commit-content">
+            <div class="commit-subject">{{ commit.subject }}</div>
+            <div class="commit-meta">
+              <span>{{ commit.shortHash }}</span>
+              <span>{{ commit.author }}</span>
+              <span>{{ commit.relativeDate }}</span>
+            </div>
+          </div>
+        </div>
+      </details>
     </template>
 
     <details class="details">
-      <summary>{{ t('version.manualConnections') }} · {{ versionStore.connections.length }}</summary>
+      <summary>{{ t('version.manualConnections') }} 路 {{ versionStore.connections.length }}</summary>
       <div v-for="connection in versionStore.connections" :key="connection.id" class="connection-row">
         <div>
           <div class="connection-name">{{ connection.name }}</div>
           <div class="connection-url">
-            {{ versionStore.providerLabel(connection.provider) }} · {{ connection.url }}
+            {{ versionStore.providerLabel(connection.provider) }} 路 {{ connection.url }}
           </div>
         </div>
       </div>
@@ -371,7 +399,6 @@ onMounted(() => {
 .branch-row,
 .toolbar,
 .section-title,
-.sync-line,
 .commit-btn {
   display: flex;
   align-items: center;
@@ -396,7 +423,8 @@ onMounted(() => {
 .section-title svg,
 .icon-action svg,
 .commit-btn svg,
-.branch-row svg {
+.branch-row svg,
+.commit-row svg {
   width: 14px;
   height: 14px;
   fill: none;
@@ -513,6 +541,7 @@ onMounted(() => {
   height: 26px;
 }
 .branch-row,
+.commit-row,
 .change-row {
   width: 100%;
   min-width: 0;
@@ -536,6 +565,36 @@ onMounted(() => {
 }
 .branch-row small {
   grid-column: 2;
+}
+.commit-row {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 6px;
+  padding: 5px;
+}
+.commit-row:hover {
+  background: var(--bg-panel);
+}
+.commit-row svg {
+  margin-top: 2px;
+  color: var(--text-dim);
+}
+.commit-content {
+  min-width: 0;
+}
+.commit-subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.commit-meta {
+  display: flex;
+  gap: 7px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 11px;
+  white-space: nowrap;
 }
 .branch-create,
 .add-form {
