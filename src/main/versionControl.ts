@@ -62,9 +62,10 @@ function parseRemotes(output: string): ProjectRemote[] {
 function parseStatusLine(line: string): VersionFileChange | null {
   if (line.length < 4) return null
 
-  const indexStatus = line[0]
-  const workTreeStatus = line[1]
-  const content = line.slice(3)
+  const match = line.match(/^(.)(.)\s+(.+)$/)
+  if (!match) return null
+
+  const [, indexStatus, workTreeStatus, content] = match
   const renameParts = content.split(' -> ')
   const path = renameParts[renameParts.length - 1]
   const originalPath = renameParts.length > 1 ? renameParts[0] : undefined

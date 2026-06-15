@@ -171,11 +171,6 @@ onMounted(() => {
       <symbol id="vc-push" viewBox="0 0 16 16">
         <path d="M8 14V4M4.5 7.5 8 4l3.5 3.5M4 13h8" />
       </symbol>
-      <symbol id="vc-more" viewBox="0 0 16 16">
-        <circle cx="3.5" cy="8" r="1" />
-        <circle cx="8" cy="8" r="1" />
-        <circle cx="12.5" cy="8" r="1" />
-      </symbol>
       <symbol id="vc-plus" viewBox="0 0 16 16">
         <path d="M8 3v10M3 8h10" />
       </symbol>
@@ -210,9 +205,6 @@ onMounted(() => {
         <button class="icon-action" type="button" :title="t('version.scan')" @click="refresh">
           <svg><use href="#vc-refresh" /></svg>
         </button>
-        <button class="icon-action" type="button" :title="t('version.more')">
-          <svg><use href="#vc-more" /></svg>
-        </button>
       </div>
     </div>
 
@@ -230,12 +222,6 @@ onMounted(() => {
         <strong>{{ activeStatus.branch || t('version.noBranch') }}</strong>
         <span v-if="activeStatus.upstream">{{ activeStatus.upstream }}</span>
       </div>
-      <div class="sync-line">
-        <span>{{ t('version.ahead') }} {{ activeStatus.ahead }}</span>
-        <span>{{ t('version.behind') }} {{ activeStatus.behind }}</span>
-        <span>{{ activeStatus.remotes.map((remote) => remote.name).join(', ') || t('version.noRemote') }}</span>
-      </div>
-
       <div class="commit-box">
         <textarea
           v-model="commitMessage"
@@ -461,8 +447,7 @@ onMounted(() => {
 .connection-name,
 .connection-url,
 .branch-row span,
-.branch-row small,
-.sync-line span {
+.branch-row small {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -471,14 +456,9 @@ onMounted(() => {
 .repo-header span,
 .empty,
 .connection-url,
-.branch-row small,
-.sync-line {
+.branch-row small {
   color: var(--text-dim);
   font-size: 11px;
-}
-.sync-line {
-  gap: 8px;
-  padding: 5px 2px 0;
 }
 .empty {
   padding: 9px 6px;
@@ -567,17 +547,18 @@ onMounted(() => {
   margin-top: 6px;
 }
 .change-row {
-  display: grid;
-  grid-template-columns: 20px 1fr auto;
+  position: relative;
+  display: flex;
   align-items: center;
   gap: 6px;
   margin-top: 3px;
-  padding: 4px 5px;
+  padding: 4px 6px;
 }
 .change-row:hover {
   background: var(--bg-panel);
 }
 .status-badge {
+  flex: 0 0 18px;
   width: 18px;
   color: #f9e2af;
   font-size: 11px;
@@ -593,7 +574,20 @@ onMounted(() => {
 .status-badge[data-status='R'] {
   color: #cba6f7;
 }
+.file-path {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: plaintext;
+}
 .row-action {
+  position: absolute;
+  right: 6px;
+  max-width: 76px;
+  padding-left: 10px;
+  background: linear-gradient(90deg, transparent, var(--bg-panel) 22%);
   color: var(--text-dim);
   font-size: 11px;
   opacity: 0;

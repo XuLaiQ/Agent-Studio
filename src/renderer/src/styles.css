@@ -6,10 +6,15 @@
   --text: #cdd6f4;
   --text-dim: #9399b2;
   --accent: #89b4fa;
+  --scrollbar-track: rgba(30, 30, 46, 0.28);
+  --scrollbar-thumb: rgba(137, 180, 250, 0.34);
+  --scrollbar-thumb-hover: rgba(137, 180, 250, 0.62);
 }
 
 * {
   box-sizing: border-box;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+  scrollbar-width: thin;
 }
 
 html,
@@ -26,6 +31,32 @@ body {
   background: var(--bg);
   color: var(--text);
   font-size: 13px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  min-height: 34px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .row {
