@@ -4,6 +4,9 @@ import type {
   Project,
   ProjectRemote,
   ProjectVersionStatus,
+  VersionBranch,
+  VersionBranchInput,
+  VersionCreateBranchInput,
   VersionCommitInput,
   VersionFileChange,
   VersionFileInput,
@@ -16,10 +19,10 @@ import { store } from './store'
 
 const execFileAsync = promisify(execFile)
 
-async function run(command: string, args: string[], cwd?: string): Promise<string> {
+async function run(command: string, args: string[], cwd?: string, timeout = 5000): Promise<string> {
   const { stdout } = await execFileAsync(command, args, {
     cwd,
-    timeout: 5000,
+    timeout,
     windowsHide: true
   })
   return String(stdout).trim()
@@ -82,6 +85,49 @@ function parseChanges(output: string): VersionFileChange[] {
     .filter((change): change is VersionFileChange => Boolean(change))
 }
 
+function parseAheadBehind(output: string, upstream: string): { upstream?: string; ahead: number; behind: number } {
+  const [behindText = '0', aheadText = '0'] = output.split(/\s+/)
+  return {
+    upstream: upstream || undefined,
+    ahead: Number(aheadText) || 0,
+    behind: Number(behindText) || 0
+  }
+}
+
+function parseLocalBranches(output: string): VersionBranch[] {
+  return output
+    .split(/\r?\n/)
+    .map((line) => {
+      const trimmed = line.trim()
+      if (!trimmed) return null
+
+      const current = line.startsWith('*')
+      const body = trimmed.replace(/^\*\s*/, '')
+      const name = body.split(/\s+/)[0]
+      const upstreamMatch = body.match(/\[([^\]:]+)(?::[^\]]+)?\]/)
+
+      return {
+        name,
+        current,
+        remote: false,
+        upstream: upstreamMatch?.[1]
+      }
+    })
+    .filter((branch): branch is VersionBranch => Boolean(branch))
+}
+
+function parseRemoteBranches(output: string): VersionBranch[] {
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.includes(' -> '))
+    .map((name) => ({
+      name,
+      current: false,
+      remote: true
+    }))
+}
+
 async function detectTool(tool: 'git' | 'gh' | 'glab'): Promise<VersionToolStatus> {
   try {
     const path = firstLine(await run('where.exe', [tool]))
@@ -100,12 +146,30 @@ async function scanProject(project: Project): Promise<ProjectVersionStatus> {
   try {
     await run('git', ['-C', project.path, 'rev-parse', '--is-inside-work-tree'])
 
-    const [branch, remoteOutput, dirtyOutput, lastCommit] = await Promise.all([
+    const [
+      branch,
+      remoteOutput,
+      dirtyOutput,
+      lastCommit,
+      branchOutput,
+      remoteBranchOutput,
+      upstreamOutput,
+      trackingOutput
+    ] = await Promise.all([
       run('git', ['-C', project.path, 'branch', '--show-current']).catch(() => ''),
       run('git', ['-C', project.path, 'remote', '-v']).catch(() => ''),
       run('git', ['-C', project.path, 'status', '--porcelain']).catch(() => ''),
-      run('git', ['-C', project.path, 'log', '-1', '--pretty=%h %s']).catch(() => '')
+      run('git', ['-C', project.path, 'log', '-1', '--pretty=%h %s']).catch(() => ''),
+      run('git', ['-C', project.path, 'branch', '-vv']).catch(() => ''),
+      run('git', ['-C', project.path, 'branch', '-r']).catch(() => ''),
+      run('git', ['-C', project.path, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']).catch(
+        () => ''
+      ),
+      run('git', ['-C', project.path, 'rev-list', '--left-right', '--count', '@{u}...HEAD']).catch(
+        () => ''
+      )
     ])
+    const tracking = parseAheadBehind(trackingOutput, upstreamOutput)
 
     return {
       projectId: project.id,
@@ -113,7 +177,12 @@ async function scanProject(project: Project): Promise<ProjectVersionStatus> {
       path: project.path,
       isRepository: true,
       branch: branch || undefined,
+      upstream: tracking.upstream,
+      ahead: tracking.ahead,
+      behind: tracking.behind,
       remotes: parseRemotes(remoteOutput),
+      localBranches: parseLocalBranches(branchOutput),
+      remoteBranches: parseRemoteBranches(remoteBranchOutput),
       dirty: dirtyOutput.length > 0,
       lastCommit: lastCommit || undefined,
       changes: parseChanges(dirtyOutput)
@@ -125,6 +194,10 @@ async function scanProject(project: Project): Promise<ProjectVersionStatus> {
       path: project.path,
       isRepository: false,
       remotes: [],
+      localBranches: [],
+      remoteBranches: [],
+      ahead: 0,
+      behind: 0,
       changes: [],
       error: err instanceof Error ? err.message : String(err)
     }
@@ -166,6 +239,41 @@ export async function commit(input: VersionCommitInput): Promise<ProjectVersionS
   const message = input.message.trim()
   if (!message) throw new Error('Commit message is required')
   await run('git', ['-C', project.path, 'commit', '-m', message])
+  return scanProject(project)
+}
+
+export async function fetchProject(input: VersionProjectInput): Promise<ProjectVersionStatus> {
+  const project = findProject(input)
+  await run('git', ['-C', project.path, 'fetch', '--all', '--prune'], undefined, 60000)
+  return scanProject(project)
+}
+
+export async function pullProject(input: VersionProjectInput): Promise<ProjectVersionStatus> {
+  const project = findProject(input)
+  await run('git', ['-C', project.path, 'pull'], undefined, 60000)
+  return scanProject(project)
+}
+
+export async function pushProject(input: VersionProjectInput): Promise<ProjectVersionStatus> {
+  const project = findProject(input)
+  await run('git', ['-C', project.path, 'push'], undefined, 60000)
+  return scanProject(project)
+}
+
+export async function checkoutBranch(input: VersionBranchInput): Promise<ProjectVersionStatus> {
+  const project = findProject(input)
+  await run('git', ['-C', project.path, 'checkout', input.branch])
+  return scanProject(project)
+}
+
+export async function createBranch(input: VersionCreateBranchInput): Promise<ProjectVersionStatus> {
+  const project = findProject(input)
+  const branch = input.branch.trim()
+  if (!branch) throw new Error('Branch name is required')
+  await run('git', ['-C', project.path, 'branch', branch])
+  if (input.checkout) {
+    await run('git', ['-C', project.path, 'checkout', branch])
+  }
   return scanProject(project)
 }
 

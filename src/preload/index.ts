@@ -11,7 +11,9 @@ import type {
   AgentStatus,
   ProjectVersionStatus,
   VersionConnection,
+  VersionBranchInput,
   VersionCommitInput,
+  VersionCreateBranchInput,
   VersionFileInput,
   VersionProjectInput,
   VersionScanResult
@@ -54,6 +56,16 @@ const api = {
     ipcRenderer.invoke('version:unstageAll', input),
   commitVersionChanges: (input: VersionCommitInput): Promise<ProjectVersionStatus> =>
     ipcRenderer.invoke('version:commit', input),
+  fetchVersionProject: (input: VersionProjectInput): Promise<ProjectVersionStatus> =>
+    ipcRenderer.invoke('version:fetch', input),
+  pullVersionProject: (input: VersionProjectInput): Promise<ProjectVersionStatus> =>
+    ipcRenderer.invoke('version:pull', input),
+  pushVersionProject: (input: VersionProjectInput): Promise<ProjectVersionStatus> =>
+    ipcRenderer.invoke('version:push', input),
+  checkoutVersionBranch: (input: VersionBranchInput): Promise<ProjectVersionStatus> =>
+    ipcRenderer.invoke('version:checkoutBranch', input),
+  createVersionBranch: (input: VersionCreateBranchInput): Promise<ProjectVersionStatus> =>
+    ipcRenderer.invoke('version:createBranch', input),
 
   // PTY control
   startPty: (input: PtyStartInput): void => ipcRenderer.send('pty:start', input),

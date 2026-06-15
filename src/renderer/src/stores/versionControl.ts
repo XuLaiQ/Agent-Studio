@@ -13,6 +13,7 @@ export const useVersionControlStore = defineStore('versionControl', () => {
   const scanResult = ref<VersionScanResult | null>(null)
   const connections = ref<VersionConnection[]>([])
   const loading = ref(false)
+  const operationLoading = ref(false)
 
   const tools = computed(() => scanResult.value?.tools ?? [])
   const projects = computed(() => scanResult.value?.projects ?? [])
@@ -88,6 +89,39 @@ export const useVersionControlStore = defineStore('versionControl', () => {
     replaceProjectStatus(await window.studio.commitVersionChanges({ projectId, message }))
   }
 
+  async function runProjectOperation(
+    operation: () => Promise<ProjectVersionStatus>
+  ): Promise<void> {
+    operationLoading.value = true
+    try {
+      replaceProjectStatus(await operation())
+    } finally {
+      operationLoading.value = false
+    }
+  }
+
+  async function fetch(projectId: string): Promise<void> {
+    await runProjectOperation(() => window.studio.fetchVersionProject({ projectId }))
+  }
+
+  async function pull(projectId: string): Promise<void> {
+    await runProjectOperation(() => window.studio.pullVersionProject({ projectId }))
+  }
+
+  async function push(projectId: string): Promise<void> {
+    await runProjectOperation(() => window.studio.pushVersionProject({ projectId }))
+  }
+
+  async function checkoutBranch(projectId: string, branch: string): Promise<void> {
+    await runProjectOperation(() => window.studio.checkoutVersionBranch({ projectId, branch }))
+  }
+
+  async function createBranch(projectId: string, branch: string, checkout: boolean): Promise<void> {
+    await runProjectOperation(() =>
+      window.studio.createVersionBranch({ projectId, branch, checkout })
+    )
+  }
+
   function providerLabel(provider: VersionProvider): string {
     if (provider === 'github') return 'GitHub'
     if (provider === 'gitlab') return 'GitLab'
@@ -98,6 +132,7 @@ export const useVersionControlStore = defineStore('versionControl', () => {
     scanResult,
     connections,
     loading,
+    operationLoading,
     tools,
     projects,
     scannedAt,
@@ -113,6 +148,11 @@ export const useVersionControlStore = defineStore('versionControl', () => {
     stageAll,
     unstageAll,
     commit,
+    fetch,
+    pull,
+    push,
+    checkoutBranch,
+    createBranch,
     providerLabel
   }
 })

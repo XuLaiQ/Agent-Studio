@@ -85,6 +85,20 @@ const messages: Record<Locale, Dict> = {
     'version.change.deleted': 'Deleted',
     'version.change.renamed': 'Renamed',
     'version.change.changed': 'Changed',
+    'version.graph': 'Graph',
+    'version.more': 'More actions',
+    'version.fetch': 'Fetch',
+    'version.pull': 'Pull',
+    'version.push': 'Push',
+    'version.ahead': 'ahead',
+    'version.behind': 'behind',
+    'version.noRemote': 'no remote',
+    'version.localBranches': 'Local branches',
+    'version.remoteBranches': 'Remote branches',
+    'version.branch.placeholder': 'New branch',
+    'version.branch.create': 'Create branch',
+    'version.branch.required': 'Branch name is required',
+    'version.branch.created': 'Branch created',
 
     'workspace.placeholder': 'Import a project on the left to get started.',
     'workspace.noAgents': 'No agents yet. Click {action} to launch a CLI.',
@@ -183,7 +197,21 @@ const zhFallbackMessages: Dict = {
   'version.change.untracked': '未跟踪',
   'version.change.deleted': '已删除',
   'version.change.renamed': '已重命名',
-  'version.change.changed': '已更改'
+  'version.change.changed': '已更改',
+  'version.graph': '图表',
+  'version.more': '更多操作',
+  'version.fetch': '抓取',
+  'version.pull': '拉取',
+  'version.push': '推送',
+  'version.ahead': '领先',
+  'version.behind': '落后',
+  'version.noRemote': '无远程',
+  'version.localBranches': '本地分支',
+  'version.remoteBranches': '远程分支',
+  'version.branch.placeholder': '新建分支',
+  'version.branch.create': '创建分支',
+  'version.branch.required': '请填写分支名',
+  'version.branch.created': '分支已创建'
 }
 
 /** Interpolate {placeholder} tokens with values from `vars`. */

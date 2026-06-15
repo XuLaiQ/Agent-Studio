@@ -54,13 +54,25 @@ export interface VersionFileChange {
   staged: boolean
 }
 
+export interface VersionBranch {
+  name: string
+  current: boolean
+  remote: boolean
+  upstream?: string
+}
+
 export interface ProjectVersionStatus {
   projectId: string
   projectName: string
   path: string
   isRepository: boolean
   branch?: string
+  upstream?: string
+  ahead: number
+  behind: number
   remotes: ProjectRemote[]
+  localBranches: VersionBranch[]
+  remoteBranches: VersionBranch[]
   dirty?: boolean
   lastCommit?: string
   changes: VersionFileChange[]
@@ -100,6 +112,17 @@ export interface VersionFileInput {
 export interface VersionCommitInput {
   projectId: string
   message: string
+}
+
+export interface VersionBranchInput {
+  projectId: string
+  branch: string
+}
+
+export interface VersionCreateBranchInput {
+  projectId: string
+  branch: string
+  checkout: boolean
 }
 
 /** Command + default args used to launch each agent's CLI. */

@@ -3,10 +3,11 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useVersionControlStore } from '../stores/versionControl'
 import { t } from '../i18n'
-import type { VersionFileChange, VersionProvider } from '@shared/types'
+import type { VersionBranch, VersionFileChange, VersionProvider } from '@shared/types'
 
 const versionStore = useVersionControlStore()
 const commitMessage = ref('')
+const newBranchName = ref('')
 
 const form = reactive({
   name: '',
@@ -24,6 +25,7 @@ const activeStatus = computed(() => versionStore.activeProjectStatus)
 const canCommit = computed(
   () => Boolean(activeStatus.value?.isRepository) && versionStore.stagedChanges.length > 0
 )
+const hasRemote = computed(() => Boolean(activeStatus.value?.remotes.length))
 
 function statusLabel(change: VersionFileChange): string {
   const code = change.staged ? change.indexStatus : change.workTreeStatus
@@ -44,10 +46,27 @@ function statusTitle(change: VersionFileChange): string {
   return t('version.change.changed')
 }
 
-function resetForm(): void {
-  form.name = ''
-  form.provider = 'github'
-  form.url = ''
+function currentProjectId(): string | null {
+  return activeStatus.value?.projectId ?? null
+}
+
+async function withProject(action: (projectId: string) => Promise<void>): Promise<void> {
+  const projectId = currentProjectId()
+  if (!projectId) return
+
+  try {
+    await action(projectId)
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : String(err))
+  }
+}
+
+async function refresh(): Promise<void> {
+  try {
+    await versionStore.scan()
+  } catch (err) {
+    ElMessage.error(err instanceof Error ? err.message : String(err))
+  }
 }
 
 async function addConnection(): Promise<void> {
@@ -59,56 +78,142 @@ async function addConnection(): Promise<void> {
   }
 
   await versionStore.addConnection({ name, provider: form.provider, url })
-  resetForm()
+  form.name = ''
+  form.provider = 'github'
+  form.url = ''
   ElMessage.success(t('version.add.done'))
 }
 
 async function stageFile(change: VersionFileChange): Promise<void> {
-  if (!activeStatus.value) return
-  await versionStore.stageFile(activeStatus.value.projectId, change.path)
+  await withProject((projectId) => versionStore.stageFile(projectId, change.path))
 }
 
 async function unstageFile(change: VersionFileChange): Promise<void> {
-  if (!activeStatus.value) return
-  await versionStore.unstageFile(activeStatus.value.projectId, change.path)
+  await withProject((projectId) => versionStore.unstageFile(projectId, change.path))
 }
 
 async function stageAll(): Promise<void> {
-  if (!activeStatus.value) return
-  await versionStore.stageAll(activeStatus.value.projectId)
+  await withProject((projectId) => versionStore.stageAll(projectId))
 }
 
 async function unstageAll(): Promise<void> {
-  if (!activeStatus.value) return
-  await versionStore.unstageAll(activeStatus.value.projectId)
+  await withProject((projectId) => versionStore.unstageAll(projectId))
 }
 
 async function commitChanges(): Promise<void> {
-  if (!activeStatus.value) return
-
   const message = commitMessage.value.trim()
   if (!message) {
     ElMessage.warning(t('version.commit.required'))
     return
   }
 
-  await versionStore.commit(activeStatus.value.projectId, message)
-  commitMessage.value = ''
-  ElMessage.success(t('version.commit.done'))
+  await withProject(async (projectId) => {
+    await versionStore.commit(projectId, message)
+    commitMessage.value = ''
+    ElMessage.success(t('version.commit.done'))
+  })
+}
+
+async function fetchProject(): Promise<void> {
+  await withProject((projectId) => versionStore.fetch(projectId))
+}
+
+async function pullProject(): Promise<void> {
+  await withProject((projectId) => versionStore.pull(projectId))
+}
+
+async function pushProject(): Promise<void> {
+  await withProject((projectId) => versionStore.push(projectId))
+}
+
+async function checkout(branch: VersionBranch): Promise<void> {
+  if (branch.current) return
+  await withProject((projectId) => versionStore.checkoutBranch(projectId, branch.name))
+}
+
+async function createBranch(): Promise<void> {
+  const branch = newBranchName.value.trim()
+  if (!branch) {
+    ElMessage.warning(t('version.branch.required'))
+    return
+  }
+
+  await withProject(async (projectId) => {
+    await versionStore.createBranch(projectId, branch, true)
+    newBranchName.value = ''
+    ElMessage.success(t('version.branch.created'))
+  })
 }
 
 onMounted(() => {
-  if (!versionStore.scanResult) versionStore.scan()
+  if (!versionStore.scanResult) refresh()
 })
 </script>
 
 <template>
   <section class="version-panel">
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="vc-graph" viewBox="0 0 16 16">
+        <circle cx="4" cy="3" r="2" />
+        <circle cx="4" cy="13" r="2" />
+        <circle cx="12" cy="8" r="2" />
+        <path d="M4 5v6M5.5 4.2c4.2.8 6.5 1.8 6.5 3.8M10.3 9.2C7.5 10.1 5.8 11.2 4.8 13" />
+      </symbol>
+      <symbol id="vc-refresh" viewBox="0 0 16 16">
+        <path d="M13 3v4H9M3 13V9h4M12.2 6A4.8 4.8 0 0 0 4 4.8M3.8 10A4.8 4.8 0 0 0 12 11.2" />
+      </symbol>
+      <symbol id="vc-fetch" viewBox="0 0 16 16">
+        <path d="M8 2v9M4.5 7.5 8 11l3.5-3.5M3 14h10" />
+      </symbol>
+      <symbol id="vc-pull" viewBox="0 0 16 16">
+        <path d="M8 2v10M4.5 8.5 8 12l3.5-3.5M4 3h8" />
+      </symbol>
+      <symbol id="vc-push" viewBox="0 0 16 16">
+        <path d="M8 14V4M4.5 7.5 8 4l3.5 3.5M4 13h8" />
+      </symbol>
+      <symbol id="vc-more" viewBox="0 0 16 16">
+        <circle cx="3.5" cy="8" r="1" />
+        <circle cx="8" cy="8" r="1" />
+        <circle cx="12.5" cy="8" r="1" />
+      </symbol>
+      <symbol id="vc-plus" viewBox="0 0 16 16">
+        <path d="M8 3v10M3 8h10" />
+      </symbol>
+      <symbol id="vc-minus" viewBox="0 0 16 16">
+        <path d="M3 8h10" />
+      </symbol>
+      <symbol id="vc-check" viewBox="0 0 16 16">
+        <path d="m3 8 3 3 7-7" />
+      </symbol>
+      <symbol id="vc-branch" viewBox="0 0 16 16">
+        <circle cx="4" cy="4" r="2" />
+        <circle cx="12" cy="12" r="2" />
+        <path d="M4 6v2a4 4 0 0 0 4 4h2" />
+      </symbol>
+    </svg>
+
     <div class="section-head">
-      <span>{{ t('version.title') }}</span>
-      <button class="icon-action" type="button" :title="t('version.scan')" @click="versionStore.scan">
-        ↻
+      <button class="section-title" type="button" :title="t('version.title')">
+        <svg><use href="#vc-graph" /></svg>
+        <span>{{ t('version.graph') }}</span>
       </button>
+      <div class="toolbar">
+        <button class="icon-action" type="button" :title="t('version.fetch')" :disabled="!hasRemote" @click="fetchProject">
+          <svg><use href="#vc-fetch" /></svg>
+        </button>
+        <button class="icon-action" type="button" :title="t('version.pull')" :disabled="!hasRemote" @click="pullProject">
+          <svg><use href="#vc-pull" /></svg>
+        </button>
+        <button class="icon-action" type="button" :title="t('version.push')" :disabled="!hasRemote" @click="pushProject">
+          <svg><use href="#vc-push" /></svg>
+        </button>
+        <button class="icon-action" type="button" :title="t('version.scan')" @click="refresh">
+          <svg><use href="#vc-refresh" /></svg>
+        </button>
+        <button class="icon-action" type="button" :title="t('version.more')">
+          <svg><use href="#vc-more" /></svg>
+        </button>
+      </div>
     </div>
 
     <div v-if="!activeStatus" class="empty">{{ t('version.noActiveProject') }}</div>
@@ -122,19 +227,63 @@ onMounted(() => {
 
     <template v-else>
       <div class="repo-header">
-        <strong>{{ activeStatus.projectName }}</strong>
-        <span>{{ activeStatus.branch || t('version.noBranch') }}</span>
+        <strong>{{ activeStatus.branch || t('version.noBranch') }}</strong>
+        <span v-if="activeStatus.upstream">{{ activeStatus.upstream }}</span>
+      </div>
+      <div class="sync-line">
+        <span>{{ t('version.ahead') }} {{ activeStatus.ahead }}</span>
+        <span>{{ t('version.behind') }} {{ activeStatus.behind }}</span>
+        <span>{{ activeStatus.remotes.map((remote) => remote.name).join(', ') || t('version.noRemote') }}</span>
       </div>
 
-      <textarea
-        v-model="commitMessage"
-        class="commit-input"
-        rows="3"
-        :placeholder="t('version.commit.placeholder')"
-      />
-      <button class="commit-btn" type="button" :disabled="!canCommit" @click="commitChanges">
-        ✓ {{ t('version.commit') }}
-      </button>
+      <div class="commit-box">
+        <textarea
+          v-model="commitMessage"
+          class="commit-input"
+          rows="3"
+          :placeholder="t('version.commit.placeholder')"
+        />
+        <button class="commit-btn" type="button" :disabled="!canCommit" @click="commitChanges">
+          <svg><use href="#vc-check" /></svg>
+          <span>{{ t('version.commit') }}</span>
+        </button>
+      </div>
+
+      <details class="details" open>
+        <summary>{{ t('version.localBranches') }} · {{ activeStatus.localBranches.length }}</summary>
+        <button
+          v-for="branch in activeStatus.localBranches"
+          :key="branch.name"
+          class="branch-row"
+          type="button"
+          :class="{ current: branch.current }"
+          @click="checkout(branch)"
+        >
+          <svg><use href="#vc-branch" /></svg>
+          <span>{{ branch.name }}</span>
+          <small v-if="branch.upstream">{{ branch.upstream }}</small>
+        </button>
+        <div class="branch-create">
+          <input v-model="newBranchName" :placeholder="t('version.branch.placeholder')" @keyup.enter="createBranch" />
+          <button class="icon-action" type="button" :title="t('version.branch.create')" @click="createBranch">
+            <svg><use href="#vc-plus" /></svg>
+          </button>
+        </div>
+      </details>
+
+      <details class="details">
+        <summary>{{ t('version.remoteBranches') }} · {{ activeStatus.remoteBranches.length }}</summary>
+        <button
+          v-for="branch in activeStatus.remoteBranches"
+          :key="branch.name"
+          class="branch-row"
+          type="button"
+          @click="checkout(branch)"
+        >
+          <svg><use href="#vc-branch" /></svg>
+          <span>{{ branch.name }}</span>
+        </button>
+      </details>
 
       <div class="group">
         <div class="group-head">
@@ -146,7 +295,7 @@ onMounted(() => {
             :title="t('version.unstageAll')"
             @click="unstageAll"
           >
-            -
+            <svg><use href="#vc-minus" /></svg>
           </button>
         </div>
         <div v-if="!versionStore.stagedChanges.length" class="empty small">
@@ -176,7 +325,7 @@ onMounted(() => {
             :title="t('version.stageAll')"
             @click="stageAll"
           >
-            +
+            <svg><use href="#vc-plus" /></svg>
           </button>
         </div>
         <div v-if="!versionStore.unstagedChanges.length" class="empty small">
@@ -198,15 +347,6 @@ onMounted(() => {
     </template>
 
     <details class="details">
-      <summary>{{ t('version.localTools') }}</summary>
-      <div v-for="tool in versionStore.tools" :key="tool.tool" class="tool-row">
-        <span class="status-dot" :class="{ online: tool.available }" />
-        <span>{{ tool.tool }}</span>
-        <span>{{ tool.available ? tool.version : t('version.notFound') }}</span>
-      </div>
-    </details>
-
-    <details class="details">
       <summary>{{ t('version.manualConnections') }} · {{ versionStore.connections.length }}</summary>
       <div v-for="connection in versionStore.connections" :key="connection.id" class="connection-row">
         <div>
@@ -215,9 +355,6 @@ onMounted(() => {
             {{ versionStore.providerLabel(connection.provider) }} · {{ connection.url }}
           </div>
         </div>
-        <button class="icon-action danger" type="button" @click="versionStore.removeConnection(connection.id)">
-          ×
-        </button>
       </div>
 
       <div class="add-form">
@@ -238,25 +375,52 @@ onMounted(() => {
 .version-panel {
   padding: 8px;
 }
+.icon-sprite {
+  display: none;
+}
 .section-head,
 .repo-header,
 .group-head,
 .connection-row,
-.tool-row {
+.branch-row,
+.toolbar,
+.section-title,
+.sync-line,
+.commit-btn {
   display: flex;
   align-items: center;
 }
-.section-head,
-.group-head {
+.section-head {
   justify-content: space-between;
+  padding: 4px 2px 8px;
+}
+.section-title {
+  min-width: 0;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--text-dim);
+  font: inherit;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
-.section-head {
-  padding: 4px 4px 8px;
+.section-title svg,
+.icon-action svg,
+.commit-btn svg,
+.branch-row svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.45;
+}
+.toolbar {
+  gap: 3px;
 }
 .icon-action,
 .commit-btn,
@@ -270,13 +434,18 @@ onMounted(() => {
 .icon-action {
   width: 24px;
   height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0;
 }
-.icon-action:hover {
+.icon-action:hover,
+.branch-row:hover {
   color: var(--accent);
 }
-.icon-action.danger:hover {
-  color: #f38ba8;
+.icon-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 .repo-header {
   justify-content: space-between;
@@ -286,7 +455,14 @@ onMounted(() => {
   border-radius: 6px;
   background: rgba(42, 42, 60, 0.5);
 }
-.repo-header strong {
+.repo-header strong,
+.repo-header span,
+.file-path,
+.connection-name,
+.connection-url,
+.branch-row span,
+.branch-row small,
+.sync-line span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -295,9 +471,14 @@ onMounted(() => {
 .repo-header span,
 .empty,
 .connection-url,
-.tool-row span:last-child {
+.branch-row small,
+.sync-line {
   color: var(--text-dim);
   font-size: 11px;
+}
+.sync-line {
+  gap: 8px;
+  padding: 5px 2px 0;
 }
 .empty {
   padding: 9px 6px;
@@ -306,9 +487,11 @@ onMounted(() => {
 .empty.small {
   padding: 6px;
 }
+.commit-box {
+  padding-top: 8px;
+}
 .commit-input {
   width: 100%;
-  margin-top: 8px;
   resize: vertical;
   min-height: 54px;
   max-height: 120px;
@@ -321,6 +504,8 @@ onMounted(() => {
 }
 .commit-btn {
   width: 100%;
+  justify-content: center;
+  gap: 6px;
   height: 28px;
   margin-top: 6px;
 }
@@ -328,21 +513,29 @@ onMounted(() => {
   cursor: not-allowed;
   opacity: 0.55;
 }
+.details,
 .group {
   margin-top: 10px;
 }
+.details summary,
 .group-head {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+}
+.details summary {
+  cursor: pointer;
+}
+.group-head {
+  justify-content: space-between;
   height: 26px;
 }
+.branch-row,
 .change-row {
   width: 100%;
   min-width: 0;
-  display: grid;
-  grid-template-columns: 20px 1fr auto;
-  align-items: center;
-  gap: 6px;
-  margin-top: 3px;
-  padding: 4px 5px;
   border: 0;
   border-radius: 5px;
   background: transparent;
@@ -350,6 +543,36 @@ onMounted(() => {
   cursor: pointer;
   font: inherit;
   text-align: left;
+}
+.branch-row {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 6px;
+  padding: 4px 5px;
+}
+.branch-row.current {
+  background: rgba(137, 180, 250, 0.12);
+  color: var(--accent);
+}
+.branch-row small {
+  grid-column: 2;
+}
+.branch-create,
+.add-form {
+  display: grid;
+  gap: 5px;
+}
+.branch-create {
+  grid-template-columns: 1fr 24px;
+  margin-top: 6px;
+}
+.change-row {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  padding: 4px 5px;
 }
 .change-row:hover {
   background: var(--bg-panel);
@@ -370,15 +593,6 @@ onMounted(() => {
 .status-badge[data-status='R'] {
   color: #cba6f7;
 }
-.file-path,
-.connection-name,
-.connection-url,
-.tool-row span:last-child {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .row-action {
   color: var(--text-dim);
   font-size: 11px;
@@ -387,44 +601,18 @@ onMounted(() => {
 .change-row:hover .row-action {
   opacity: 1;
 }
-.details {
-  margin-top: 10px;
-}
-.details summary {
-  cursor: pointer;
-  color: var(--text-dim);
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-.tool-row {
-  display: grid;
-  grid-template-columns: 10px 34px 1fr;
-  gap: 6px;
-  padding: 5px 2px;
-}
-.status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #f38ba8;
-}
-.status-dot.online {
-  background: #a6e3a1;
-}
 .connection-row {
   justify-content: space-between;
   gap: 8px;
   padding: 6px 0;
 }
 .add-form {
-  display: grid;
   grid-template-columns: 1fr 74px;
-  gap: 5px;
   margin-top: 6px;
 }
 .add-form input,
-.add-form select {
+.add-form select,
+.branch-create input {
   min-width: 0;
   height: 26px;
   border: 1px solid var(--border);

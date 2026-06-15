@@ -4,7 +4,12 @@ import { store } from './store'
 import { ptyManager } from './ptyManager'
 import { readDir } from './fileTree'
 import {
+  checkoutBranch,
   commit,
+  createBranch,
+  fetchProject,
+  pullProject,
+  pushProject,
   scanVersionControl,
   stageAll,
   stageFile,
@@ -15,7 +20,9 @@ import type {
   CreateAgentInput,
   CreateVersionConnectionInput,
   PtyStartInput,
+  VersionBranchInput,
   VersionCommitInput,
+  VersionCreateBranchInput,
   VersionFileInput,
   VersionProjectInput
 } from '../shared/types'
@@ -68,6 +75,15 @@ export function registerIpc(): void {
   ipcMain.handle('version:stageAll', (_e, input: VersionProjectInput) => stageAll(input))
   ipcMain.handle('version:unstageAll', (_e, input: VersionProjectInput) => unstageAll(input))
   ipcMain.handle('version:commit', (_e, input: VersionCommitInput) => commit(input))
+  ipcMain.handle('version:fetch', (_e, input: VersionProjectInput) => fetchProject(input))
+  ipcMain.handle('version:pull', (_e, input: VersionProjectInput) => pullProject(input))
+  ipcMain.handle('version:push', (_e, input: VersionProjectInput) => pushProject(input))
+  ipcMain.handle('version:checkoutBranch', (_e, input: VersionBranchInput) =>
+    checkoutBranch(input)
+  )
+  ipcMain.handle('version:createBranch', (_e, input: VersionCreateBranchInput) =>
+    createBranch(input)
+  )
 
   // ---- PTY / terminal ----
   ipcMain.on('pty:start', (event, input: PtyStartInput) => {
