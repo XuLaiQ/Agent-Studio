@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useStudioStore } from '../stores/studio'
 import { t } from '../i18n'
 import type { FileNode } from '@shared/types'
@@ -8,12 +9,14 @@ const store = useStudioStore()
 const roots = ref<FileNode[]>([])
 const expanded = ref<Set<string>>(new Set())
 const childrenCache = ref<Record<string, FileNode[]>>({})
+const contextMenu = ref<{ node: FileNode; x: number; y: number } | null>(null)
 
 watch(
   () => store.activeProject?.path,
   async (path) => {
     expanded.value = new Set()
     childrenCache.value = {}
+    closeContextMenu()
     roots.value = path ? await window.studio.readDir(path) : []
   },
   { immediate: true }
@@ -30,6 +33,70 @@ async function toggle(node: FileNode): Promise<void> {
     expanded.value.add(node.path)
   }
 }
+
+function openContextMenu(node: FileNode, event: MouseEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+
+  const menuWidth = 190
+  const menuHeight = 74
+  contextMenu.value = {
+    node,
+    x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
+    y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8))
+  }
+}
+
+function closeContextMenu(): void {
+  contextMenu.value = null
+}
+
+function relativePathFor(nodePath: string): string {
+  const rootPath = store.activeProject?.path
+  if (!rootPath) return nodePath
+
+  const normalizedRoot = rootPath.replace(/\\/g, '/').replace(/\/+$/, '')
+  const normalizedNode = nodePath.replace(/\\/g, '/')
+  const rootPrefix = `${normalizedRoot}/`
+
+  if (normalizedNode.toLowerCase() === normalizedRoot.toLowerCase()) return '.'
+  if (!normalizedNode.toLowerCase().startsWith(rootPrefix.toLowerCase())) return nodePath
+
+  const relative = normalizedNode.slice(rootPrefix.length)
+  return rootPath.includes('\\') ? relative.replace(/\//g, '\\') : relative
+}
+
+function copyPath(kind: 'relative' | 'absolute'): void {
+  const node = contextMenu.value?.node
+  if (!node) return
+
+  const path = kind === 'relative' ? relativePathFor(node.path) : node.path
+  window.studio.writeClipboardText(path)
+  closeContextMenu()
+  ElMessage.success(
+    t(kind === 'relative' ? 'explorer.copy.relative.done' : 'explorer.copy.absolute.done')
+  )
+}
+
+function closeContextMenuOnEscape(event: KeyboardEvent): void {
+  if (event.key === 'Escape') closeContextMenu()
+}
+
+onMounted(() => {
+  window.addEventListener('click', closeContextMenu)
+  window.addEventListener('contextmenu', closeContextMenu)
+  window.addEventListener('keydown', closeContextMenuOnEscape)
+  window.addEventListener('blur', closeContextMenu)
+  window.addEventListener('scroll', closeContextMenu, true)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('click', closeContextMenu)
+  window.removeEventListener('contextmenu', closeContextMenu)
+  window.removeEventListener('keydown', closeContextMenuOnEscape)
+  window.removeEventListener('blur', closeContextMenu)
+  window.removeEventListener('scroll', closeContextMenu, true)
+})
 </script>
 
 <template>
@@ -45,8 +112,23 @@ async function toggle(node: FileNode): Promise<void> {
         :expanded="expanded"
         :children-cache="childrenCache"
         @toggle="toggle"
+        @open-menu="openContextMenu"
       />
     </ul>
+    <div
+      v-if="contextMenu"
+      class="context-menu"
+      :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
+      @click.stop
+      @contextmenu.prevent.stop
+    >
+      <button type="button" @click="copyPath('relative')">
+        {{ t('explorer.copy.relative') }}
+      </button>
+      <button type="button" @click="copyPath('absolute')">
+        {{ t('explorer.copy.absolute') }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -62,7 +144,7 @@ const FileRow = defineComponent({
     expanded: { type: Object as PropType<Set<string>>, required: true },
     childrenCache: { type: Object as PropType<Record<string, FileNode[]>>, required: true }
   },
-  emits: ['toggle'],
+  emits: ['toggle', 'open-menu'],
   setup(props, { emit }) {
     return () => {
       const isOpen = props.expanded.has(props.node.path)
@@ -73,7 +155,8 @@ const FileRow = defineComponent({
           {
             class: 'row-item',
             style: { paddingLeft: `${props.depth * 14 + 6}px` },
-            onClick: () => emit('toggle', props.node)
+            onClick: () => emit('toggle', props.node),
+            onContextmenu: (event: MouseEvent) => emit('open-menu', props.node, event)
           },
           [
             h('span', { class: 'icon' }, icon),
@@ -90,7 +173,8 @@ const FileRow = defineComponent({
               depth: props.depth + 1,
               expanded: props.expanded,
               childrenCache: props.childrenCache,
-              onToggle: (n: FileNode) => emit('toggle', n)
+              onToggle: (n: FileNode) => emit('toggle', n),
+              onOpenMenu: (n: FileNode, event: MouseEvent) => emit('open-menu', n, event)
             })
           )
         }
@@ -126,6 +210,34 @@ export default {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+.context-menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 178px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-soft);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
+}
+.context-menu button {
+  width: 100%;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.context-menu button:hover {
+  background: var(--bg-panel);
+  color: var(--accent);
 }
 :deep(.row-item) {
   display: flex;

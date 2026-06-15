@@ -37,6 +37,10 @@ const messages: Record<Locale, Dict> = {
 
     'explorer.title': 'Explorer',
     'explorer.empty': 'Select a project to browse files.',
+    'explorer.copy.relative': 'Copy relative path',
+    'explorer.copy.absolute': 'Copy absolute path',
+    'explorer.copy.relative.done': 'Relative path copied',
+    'explorer.copy.absolute.done': 'Absolute path copied',
 
     'workspace.placeholder': 'Import a project on the left to get started.',
     'workspace.noAgents': 'No agents yet. Click {action} to launch a CLI.',
@@ -88,6 +92,13 @@ const messages: Record<Locale, Dict> = {
   }
 }
 
+const zhFallbackMessages: Dict = {
+  'explorer.copy.relative': '复制相对路径',
+  'explorer.copy.absolute': '复制绝对路径',
+  'explorer.copy.relative.done': '已复制相对路径',
+  'explorer.copy.absolute.done': '已复制绝对路径'
+}
+
 /** Interpolate {placeholder} tokens with values from `vars`. */
 function interpolate(template: string, vars?: Record<string, string | number>): string {
   if (!vars) return template
@@ -99,7 +110,8 @@ function interpolate(template: string, vars?: Record<string, string | number>): 
 /** Reactive translate. Use inside templates/computed so it tracks `locale`. */
 export function t(key: string, vars?: Record<string, string | number>): string {
   const dict = messages[locale.value]
-  return interpolate(dict[key] ?? messages.en[key] ?? key, vars)
+  const fallback = locale.value === 'zh' ? zhFallbackMessages[key] : undefined
+  return interpolate(dict[key] ?? fallback ?? messages.en[key] ?? key, vars)
 }
 
 export function setLocale(next: Locale): void {
