@@ -3,6 +3,7 @@ import { onMounted } from 'vue'
 import { useStudioStore } from './stores/studio'
 import ProjectSidebar from './components/ProjectSidebar.vue'
 import FileExplorer from './components/FileExplorer.vue'
+import VersionControlPanel from './components/VersionControlPanel.vue'
 import AgentWorkspace from './components/AgentWorkspace.vue'
 import {
   locale,
@@ -43,6 +44,7 @@ onMounted(() => store.loadProjects())
       <div class="body">
         <aside class="left">
           <ProjectSidebar class="left-top" />
+          <VersionControlPanel class="left-middle" />
           <FileExplorer class="left-bottom" />
         </aside>
         <main class="main">
@@ -95,7 +97,13 @@ onMounted(() => store.loadProjects())
 }
 .left-top {
   flex: 0 0 auto;
-  max-height: 50%;
+  max-height: 34%;
+  overflow: auto;
+}
+.left-middle {
+  flex: 0 0 auto;
+  max-height: 36%;
+  border-top: 1px solid var(--border);
   overflow: auto;
 }
 .left-bottom {

@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { useVersionControlStore } from './versionControl'
 import type { Project, Agent, AgentType, AgentStatus } from '@shared/types'
 
 export const useStudioStore = defineStore('studio', () => {
+  const versionControlStore = useVersionControlStore()
   const projects = ref<Project[]>([])
   const activeProjectId = ref<string | null>(null)
   /** Currently-focused agent (tab) per project. */
@@ -29,6 +31,7 @@ export const useStudioStore = defineStore('studio', () => {
     if (!activeProjectId.value && projects.value.length) {
       selectProject(projects.value[0].id)
     }
+    await versionControlStore.scan()
   }
 
   async function importProject(): Promise<void> {
@@ -45,6 +48,7 @@ export const useStudioStore = defineStore('studio', () => {
       activeProjectId.value = projects.value[0]?.id ?? null
       activeAgentId.value = activeProject.value?.agents[0]?.id ?? null
     }
+    await versionControlStore.scan()
   }
 
   function selectProject(id: string): void {

@@ -3,7 +3,22 @@ import { basename } from 'path'
 import { store } from './store'
 import { ptyManager } from './ptyManager'
 import { readDir } from './fileTree'
-import type { CreateAgentInput, PtyStartInput } from '../shared/types'
+import {
+  commit,
+  scanVersionControl,
+  stageAll,
+  stageFile,
+  unstageAll,
+  unstageFile
+} from './versionControl'
+import type {
+  CreateAgentInput,
+  CreateVersionConnectionInput,
+  PtyStartInput,
+  VersionCommitInput,
+  VersionFileInput,
+  VersionProjectInput
+} from '../shared/types'
 
 export function registerIpc(): void {
   // ---- Projects ----
@@ -37,6 +52,22 @@ export function registerIpc(): void {
 
   // ---- File tree ----
   ipcMain.handle('fs:readdir', (_e, dirPath: string) => readDir(dirPath))
+
+  // ---- Version control ----
+  ipcMain.handle('version:scan', () => scanVersionControl())
+  ipcMain.handle('version:connections', () => store.getVersionConnections())
+  ipcMain.handle('version:addConnection', (_e, input: CreateVersionConnectionInput) =>
+    store.addVersionConnection(input)
+  )
+  ipcMain.handle('version:removeConnection', (_e, id: string) => {
+    store.removeVersionConnection(id)
+    return store.getVersionConnections()
+  })
+  ipcMain.handle('version:stageFile', (_e, input: VersionFileInput) => stageFile(input))
+  ipcMain.handle('version:unstageFile', (_e, input: VersionFileInput) => unstageFile(input))
+  ipcMain.handle('version:stageAll', (_e, input: VersionProjectInput) => stageAll(input))
+  ipcMain.handle('version:unstageAll', (_e, input: VersionProjectInput) => unstageAll(input))
+  ipcMain.handle('version:commit', (_e, input: VersionCommitInput) => commit(input))
 
   // ---- PTY / terminal ----
   ipcMain.on('pty:start', (event, input: PtyStartInput) => {

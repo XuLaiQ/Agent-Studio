@@ -30,6 +30,78 @@ export interface FileNode {
   children?: FileNode[]
 }
 
+export type VersionProvider = 'git' | 'github' | 'gitlab'
+
+export interface VersionToolStatus {
+  tool: 'git' | 'gh' | 'glab'
+  available: boolean
+  version?: string
+  path?: string
+  error?: string
+}
+
+export interface ProjectRemote {
+  name: string
+  url: string
+  provider: VersionProvider
+}
+
+export interface VersionFileChange {
+  path: string
+  originalPath?: string
+  indexStatus: string
+  workTreeStatus: string
+  staged: boolean
+}
+
+export interface ProjectVersionStatus {
+  projectId: string
+  projectName: string
+  path: string
+  isRepository: boolean
+  branch?: string
+  remotes: ProjectRemote[]
+  dirty?: boolean
+  lastCommit?: string
+  changes: VersionFileChange[]
+  error?: string
+}
+
+export interface VersionConnection {
+  id: string
+  name: string
+  provider: VersionProvider
+  url: string
+  createTime: number
+}
+
+export interface CreateVersionConnectionInput {
+  name: string
+  provider: VersionProvider
+  url: string
+}
+
+export interface VersionScanResult {
+  tools: VersionToolStatus[]
+  projects: ProjectVersionStatus[]
+  connections: VersionConnection[]
+  scannedAt: number
+}
+
+export interface VersionProjectInput {
+  projectId: string
+}
+
+export interface VersionFileInput {
+  projectId: string
+  path: string
+}
+
+export interface VersionCommitInput {
+  projectId: string
+  message: string
+}
+
 /** Command + default args used to launch each agent's CLI. */
 export const AGENT_COMMANDS: Record<AgentType, { command: string; args: string[]; label: string }> = {
   claude: { command: 'claude', args: [], label: 'Claude' },

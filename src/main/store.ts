@@ -1,12 +1,19 @@
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
-import type { Project, Agent, CreateAgentInput } from '../shared/types'
+import type {
+  Project,
+  Agent,
+  CreateAgentInput,
+  CreateVersionConnectionInput,
+  VersionConnection
+} from '../shared/types'
 import { AGENT_COMMANDS } from '../shared/types'
 import { randomUUID } from 'crypto'
 
 interface StoreData {
   projects: Project[]
+  versionConnections: VersionConnection[]
 }
 
 /**
@@ -16,7 +23,7 @@ interface StoreData {
  */
 class Store {
   private file: string
-  private data: StoreData = { projects: [] }
+  private data: StoreData = { projects: [], versionConnections: [] }
 
   constructor() {
     const dir = app.getPath('userData')
@@ -32,9 +39,10 @@ class Store {
       }
     } catch (err) {
       console.error('[store] failed to load, starting fresh:', err)
-      this.data = { projects: [] }
+      this.data = { projects: [], versionConnections: [] }
     }
     if (!Array.isArray(this.data.projects)) this.data.projects = []
+    if (!Array.isArray(this.data.versionConnections)) this.data.versionConnections = []
   }
 
   private persist(): void {
@@ -93,6 +101,28 @@ class Store {
     const project = this.findProject(projectId)
     if (!project) return
     project.agents = project.agents.filter((a) => a.id !== agentId)
+    this.persist()
+  }
+
+  getVersionConnections(): VersionConnection[] {
+    return this.data.versionConnections
+  }
+
+  addVersionConnection(input: CreateVersionConnectionInput): VersionConnection {
+    const connection: VersionConnection = {
+      id: randomUUID(),
+      name: input.name.trim(),
+      provider: input.provider,
+      url: input.url.trim(),
+      createTime: Date.now()
+    }
+    this.data.versionConnections.push(connection)
+    this.persist()
+    return connection
+  }
+
+  removeVersionConnection(id: string): void {
+    this.data.versionConnections = this.data.versionConnections.filter((c) => c.id !== id)
     this.persist()
   }
 }

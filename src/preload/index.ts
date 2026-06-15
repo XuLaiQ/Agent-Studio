@@ -4,10 +4,17 @@ import type {
   Agent,
   FileNode,
   CreateAgentInput,
+  CreateVersionConnectionInput,
   PtyStartInput,
   PtyDataEvent,
   PtyExitEvent,
-  AgentStatus
+  AgentStatus,
+  ProjectVersionStatus,
+  VersionConnection,
+  VersionCommitInput,
+  VersionFileInput,
+  VersionProjectInput,
+  VersionScanResult
 } from '../shared/types'
 
 const api = {
@@ -28,6 +35,25 @@ const api = {
   // Clipboard
   readClipboardText: (): string => clipboard.readText(),
   writeClipboardText: (text: string): void => clipboard.writeText(text),
+
+  // Version control
+  scanVersionControl: (): Promise<VersionScanResult> => ipcRenderer.invoke('version:scan'),
+  listVersionConnections: (): Promise<VersionConnection[]> =>
+    ipcRenderer.invoke('version:connections'),
+  addVersionConnection: (input: CreateVersionConnectionInput): Promise<VersionConnection> =>
+    ipcRenderer.invoke('version:addConnection', input),
+  removeVersionConnection: (id: string): Promise<VersionConnection[]> =>
+    ipcRenderer.invoke('version:removeConnection', id),
+  stageVersionFile: (input: VersionFileInput): Promise<ProjectVersionStatus> =>
+    ipcRenderer.invoke('version:stageFile', input),
+  unstageVersionFile: (input: VersionFileInput): Promise<ProjectVersionStatus> =>
+    ipcRenderer.invoke('version:unstageFile', input),
+  stageAllVersionChanges: (input: VersionProjectInput): Promise<ProjectVersionStatus> =>
+    ipcRenderer.invoke('version:stageAll', input),
+  unstageAllVersionChanges: (input: VersionProjectInput): Promise<ProjectVersionStatus> =>
+    ipcRenderer.invoke('version:unstageAll', input),
+  commitVersionChanges: (input: VersionCommitInput): Promise<ProjectVersionStatus> =>
+    ipcRenderer.invoke('version:commit', input),
 
   // PTY control
   startPty: (input: PtyStartInput): void => ipcRenderer.send('pty:start', input),
