@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useStudioStore } from './stores/studio'
 import ProjectSidebar from './components/ProjectSidebar.vue'
 import FileExplorer from './components/FileExplorer.vue'
@@ -15,7 +15,42 @@ import {
 } from './i18n'
 
 const store = useStudioStore()
-onMounted(() => store.loadProjects())
+const leftWidth = ref(Number(localStorage.getItem('agent-studio.leftWidth')) || 280)
+let resizing = false
+
+function clampLeftWidth(width: number): number {
+  const max = Math.max(260, window.innerWidth - 520)
+  return Math.min(Math.max(width, 220), max)
+}
+
+function onResizeMove(event: PointerEvent): void {
+  if (!resizing) return
+  leftWidth.value = clampLeftWidth(event.clientX)
+}
+
+function stopResize(): void {
+  if (!resizing) return
+  resizing = false
+  document.body.classList.remove('resizing-panels')
+  localStorage.setItem('agent-studio.leftWidth', String(leftWidth.value))
+  window.removeEventListener('pointermove', onResizeMove)
+  window.removeEventListener('pointerup', stopResize)
+}
+
+function startResize(event: PointerEvent): void {
+  resizing = true
+  event.preventDefault()
+  document.body.classList.add('resizing-panels')
+  window.addEventListener('pointermove', onResizeMove)
+  window.addEventListener('pointerup', stopResize)
+}
+
+onMounted(() => {
+  leftWidth.value = clampLeftWidth(leftWidth.value)
+  store.loadProjects()
+})
+
+onBeforeUnmount(() => stopResize())
 </script>
 
 <template>
@@ -42,11 +77,20 @@ onMounted(() => store.loadProjects())
       </header>
 
       <div class="body">
-        <aside class="left">
+        <aside class="left" :style="{ width: `${leftWidth}px` }">
           <ProjectSidebar class="left-top" />
           <VersionControlPanel class="left-middle" />
           <FileExplorer class="left-bottom" />
         </aside>
+        <div
+          class="splitter"
+          role="separator"
+          aria-orientation="vertical"
+          :aria-valuenow="leftWidth"
+          aria-valuemin="220"
+          aria-valuemax="900"
+          @pointerdown="startResize"
+        />
         <main class="main">
           <AgentWorkspace />
         </main>
@@ -88,12 +132,31 @@ onMounted(() => store.loadProjects())
   min-height: 0;
 }
 .left {
-  width: 280px;
   min-width: 220px;
   display: flex;
   flex-direction: column;
   background: var(--bg-soft);
-  border-right: 1px solid var(--border);
+}
+.splitter {
+  flex: 0 0 6px;
+  cursor: col-resize;
+  background: linear-gradient(
+    90deg,
+    var(--bg-soft) 0,
+    var(--border) 2px,
+    var(--border) 3px,
+    var(--bg) 100%
+  );
+  transition: background 0.15s ease;
+}
+.splitter:hover {
+  background: linear-gradient(
+    90deg,
+    var(--bg-soft) 0,
+    var(--accent) 2px,
+    var(--accent) 3px,
+    var(--bg) 100%
+  );
 }
 .left-top {
   flex: 0 0 auto;

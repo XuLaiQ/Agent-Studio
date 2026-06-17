@@ -24,6 +24,8 @@ const api = {
   listProjects: (): Promise<Project[]> => ipcRenderer.invoke('project:list'),
   importProject: (): Promise<Project | null> => ipcRenderer.invoke('project:import'),
   removeProject: (id: string): Promise<Project[]> => ipcRenderer.invoke('project:remove', id),
+  openProjectPath: (projectPath: string): Promise<string> =>
+    ipcRenderer.invoke('project:openPath', projectPath),
 
   // Agents
   createAgent: (input: CreateAgentInput): Promise<Agent> =>

@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { useStudioStore } from '../stores/studio'
 import { t } from '../i18n'
 import type { Project } from '@shared/types'
 
 const store = useStudioStore()
+const contextMenu = ref<{ project: Project; x: number; y: number } | null>(null)
 
 async function confirmRemove(project: Project): Promise<void> {
   try {
@@ -22,6 +24,50 @@ async function confirmRemove(project: Project): Promise<void> {
     /* cancelled */
   }
 }
+
+function openContextMenu(project: Project, event: MouseEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+
+  const menuWidth = 190
+  const menuHeight = 38
+  contextMenu.value = {
+    project,
+    x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
+    y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8))
+  }
+}
+
+function closeContextMenu(): void {
+  contextMenu.value = null
+}
+
+async function openInFileManager(): Promise<void> {
+  const project = contextMenu.value?.project
+  if (!project) return
+  closeContextMenu()
+  await window.studio.openProjectPath(project.path)
+}
+
+function closeContextMenuOnEscape(event: KeyboardEvent): void {
+  if (event.key === 'Escape') closeContextMenu()
+}
+
+onMounted(() => {
+  window.addEventListener('click', closeContextMenu)
+  window.addEventListener('contextmenu', closeContextMenu)
+  window.addEventListener('keydown', closeContextMenuOnEscape)
+  window.addEventListener('blur', closeContextMenu)
+  window.addEventListener('scroll', closeContextMenu, true)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('click', closeContextMenu)
+  window.removeEventListener('contextmenu', closeContextMenu)
+  window.removeEventListener('keydown', closeContextMenuOnEscape)
+  window.removeEventListener('blur', closeContextMenu)
+  window.removeEventListener('scroll', closeContextMenu, true)
+})
 </script>
 
 <template>
@@ -44,6 +90,7 @@ async function confirmRemove(project: Project): Promise<void> {
         :key="p.id"
         :class="{ active: p.id === store.activeProjectId }"
         @click="store.selectProject(p.id)"
+        @contextmenu="openContextMenu(p, $event)"
       >
         <div class="proj">
           <span class="name">{{ p.name }}</span>
@@ -53,6 +100,18 @@ async function confirmRemove(project: Project): Promise<void> {
         <span class="del" :title="t('projects.remove.tip')" @click.stop="confirmRemove(p)">×</span>
       </li>
     </ul>
+
+    <div
+      v-if="contextMenu"
+      class="context-menu"
+      :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
+      @click.stop
+      @contextmenu.prevent.stop
+    >
+      <button type="button" @click="openInFileManager">
+        {{ t('projects.open.external') }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -128,5 +187,33 @@ async function confirmRemove(project: Project): Promise<void> {
 }
 .del:hover {
   color: #f38ba8;
+}
+.context-menu {
+  position: fixed;
+  z-index: 60;
+  min-width: 178px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-soft);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
+}
+.context-menu button {
+  width: 100%;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.context-menu button:hover {
+  background: var(--bg-panel);
+  color: var(--accent);
 }
 </style>

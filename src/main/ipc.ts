@@ -1,4 +1,4 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { ipcMain, dialog, BrowserWindow, shell } from 'electron'
 import { basename } from 'path'
 import { store } from './store'
 import { ptyManager } from './ptyManager'
@@ -47,6 +47,8 @@ export function registerIpc(): void {
     store.removeProject(id)
     return store.getProjects()
   })
+
+  ipcMain.handle('project:openPath', (_e, projectPath: string) => shell.openPath(projectPath))
 
   // ---- Agents ----
   ipcMain.handle('agent:create', (_e, input: CreateAgentInput) => store.addAgent(input))

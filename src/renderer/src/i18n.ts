@@ -34,6 +34,7 @@ const messages: Record<Locale, Dict> = {
       'Remove project "{name}"? Its agents and terminals will be closed.',
     'projects.remove.button': 'Remove',
     'projects.remove.tip': 'Remove project',
+    'projects.open.external': 'Open in file manager',
 
     'explorer.title': 'Explorer',
     'explorer.empty': 'Select a project to browse files.',
@@ -108,6 +109,9 @@ const messages: Record<Locale, Dict> = {
     'agent.close.title': 'Close agent',
     'agent.close.confirm': 'Close agent "{name}"?',
     'agent.close.button': 'Close',
+    'agent.closeAll.title': 'Close all agents',
+    'agent.closeAll.confirm': 'Close all {count} agents in this project?',
+    'agent.closeAll.button': 'Close All',
 
     'dialog.addAgent.title': 'Add Agent',
     'dialog.addAgent.namePlaceholder': 'Optional name (defaults to agent type)',
@@ -153,6 +157,10 @@ const messages: Record<Locale, Dict> = {
 }
 
 const zhFallbackMessages: Dict = {
+  'projects.open.external': '在外部文件管理器中打开',
+  'agent.closeAll.title': '关闭全部智能体',
+  'agent.closeAll.confirm': '关闭当前项目中的全部 {count} 个智能体？',
+  'agent.closeAll.button': '关闭全部',
   'explorer.copy.relative': '复制相对路径',
   'explorer.copy.absolute': '复制绝对路径',
   'explorer.copy.relative.done': '已复制相对路径',
