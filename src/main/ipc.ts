@@ -1,8 +1,15 @@
-import { ipcMain, dialog, BrowserWindow, shell } from 'electron'
-import { basename } from 'path'
+import { ipcMain, dialog, BrowserWindow, shell, webContents } from 'electron'
+import { watch, type FSWatcher } from 'fs'
+import { basename, resolve } from 'path'
 import { store } from './store'
 import { ptyManager } from './ptyManager'
-import { readDir } from './fileTree'
+import {
+  createFileSystemEntry,
+  deleteFileSystemEntry,
+  readDir,
+  readFilePreview,
+  writeTextFile
+} from './fileTree'
 import {
   checkoutBranch,
   commit,
@@ -18,6 +25,12 @@ import {
 } from './versionControl'
 import type {
   CreateAgentInput,
+  FileChangeEvent,
+  FileCreateInput,
+  FileDeleteInput,
+  FilePreviewInput,
+  FileWatchResult,
+  FileWriteInput,
   CreateVersionConnectionInput,
   PtyStartInput,
   VersionBranchInput,
@@ -26,6 +39,75 @@ import type {
   VersionFileInput,
   VersionProjectInput
 } from '../shared/types'
+
+const fileWatchers = new Map<
+  string,
+  {
+    watcher: FSWatcher
+    subscriberIds: Set<number>
+  }
+>()
+
+function closeProjectWatcher(projectPath: string): void {
+  const key = resolve(projectPath)
+  const entry = fileWatchers.get(key)
+  if (!entry) return
+
+  entry.watcher.close()
+  fileWatchers.delete(key)
+}
+
+function subscribeToProjectChanges(projectPath: string, senderId: number): FileWatchResult {
+  const key = resolve(projectPath)
+  const existing = fileWatchers.get(key)
+  if (existing) {
+    existing.subscriberIds.add(senderId)
+    return { watching: true }
+  }
+
+  try {
+    const subscriberIds = new Set([senderId])
+    const watcher = watch(key, { recursive: true }, (eventType, filename) => {
+      const payload: FileChangeEvent = {
+        projectPath: key,
+        eventType,
+        filename: filename?.toString(),
+        timestamp: Date.now()
+      }
+
+      for (const id of [...subscriberIds]) {
+        const contents = webContents.fromId(id)
+        if (!contents || contents.isDestroyed()) {
+          subscriberIds.delete(id)
+          continue
+        }
+        contents.send('fs:changed', payload)
+      }
+
+      if (subscriberIds.size === 0) closeProjectWatcher(key)
+    })
+
+    watcher.on('error', (error) => {
+      console.error('[fileTree] watcher failed:', key, error)
+      closeProjectWatcher(key)
+    })
+
+    fileWatchers.set(key, { watcher, subscriberIds })
+    return { watching: true }
+  } catch (err) {
+    return { watching: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+function unsubscribeFromProjectChanges(projectPath: string, senderId: number): FileWatchResult {
+  const key = resolve(projectPath)
+  const entry = fileWatchers.get(key)
+  if (!entry) return { watching: false }
+
+  entry.subscriberIds.delete(senderId)
+  if (entry.subscriberIds.size === 0) closeProjectWatcher(key)
+  return { watching: false }
+}
 
 export function registerIpc(): void {
   // ---- Projects ----
@@ -61,6 +143,16 @@ export function registerIpc(): void {
 
   // ---- File tree ----
   ipcMain.handle('fs:readdir', (_e, dirPath: string) => readDir(dirPath))
+  ipcMain.handle('fs:preview', (_e, input: FilePreviewInput) => readFilePreview(input))
+  ipcMain.handle('fs:create', (_e, input: FileCreateInput) => createFileSystemEntry(input))
+  ipcMain.handle('fs:delete', (_e, input: FileDeleteInput) => deleteFileSystemEntry(input))
+  ipcMain.handle('fs:writeFile', (_e, input: FileWriteInput) => writeTextFile(input))
+  ipcMain.handle('fs:watchProject', (event, projectPath: string) =>
+    subscribeToProjectChanges(projectPath, event.sender.id)
+  )
+  ipcMain.handle('fs:unwatchProject', (event, projectPath: string) =>
+    unsubscribeFromProjectChanges(projectPath, event.sender.id)
+  )
 
   // ---- Version control ----
   ipcMain.handle('version:scan', () => scanVersionControl())

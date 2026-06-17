@@ -16,7 +16,6 @@ let started = false
 
 function doFit(): void {
   if (!fit || !term || !host.value) return
-  // Skip while hidden (display:none gives a 0x0 box -> fit throws / NaN).
   if (host.value.clientHeight === 0 || host.value.clientWidth === 0) return
   try {
     fit.fit()
@@ -54,10 +53,10 @@ onMounted(() => {
     cursorBlink: true,
     allowProposedApi: true,
     theme: {
-      background: '#1e1e2e',
-      foreground: '#cdd6f4',
-      cursor: '#89b4fa',
-      selectionBackground: '#45475a'
+      background: '#1e1e1e',
+      foreground: '#cccccc',
+      cursor: '#aeafad',
+      selectionBackground: '#264f78'
     }
   })
   fit = new FitAddon()
@@ -79,10 +78,8 @@ onMounted(() => {
     return true
   })
 
-  // User keystrokes -> PTY
   term.onData((data) => window.studio.writePty(props.agent.id, data))
 
-  // PTY output -> terminal
   cleanups.push(
     window.studio.onPtyData((e) => {
       if (e.agentId === props.agent.id) term?.write(e.data)
@@ -99,7 +96,6 @@ onMounted(() => {
     })
   )
 
-  // Refit when the container resizes or first becomes visible.
   resizeObserver = new ResizeObserver(() => doFit())
   resizeObserver.observe(host.value)
 
@@ -135,7 +131,18 @@ function copySelection(event: MouseEvent): void {
 <template>
   <div class="term-wrap">
     <div ref="host" class="term-host" @click="term?.focus()" @contextmenu="copySelection" />
-    <button class="restart" :title="t('terminal.restart')" @click="restart">↻</button>
+    <button class="restart" type="button" :title="t('terminal.restart')" @click="restart">
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path
+          d="M13 3.5v3H10M12.4 6.5A4.8 4.8 0 1 0 13 9"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.4"
+        />
+      </svg>
+    </button>
   </div>
 </template>
 
@@ -144,6 +151,7 @@ function copySelection(event: MouseEvent): void {
   position: absolute;
   inset: 0;
   padding: 6px 8px;
+  background: var(--bg);
 }
 .term-host {
   width: 100%;
@@ -151,18 +159,29 @@ function copySelection(event: MouseEvent): void {
 }
 .restart {
   position: absolute;
-  top: 10px;
-  right: 16px;
-  background: var(--bg-panel);
-  color: var(--text-dim);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  top: 8px;
+  right: 12px;
   width: 26px;
   height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: rgba(45, 45, 45, 0.88);
+  color: var(--text-dim);
   cursor: pointer;
-  font-size: 14px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.term-wrap:hover .restart {
+  opacity: 1;
+}
+.restart svg {
+  width: 15px;
+  height: 15px;
 }
 .restart:hover {
-  color: var(--accent);
+  color: var(--text);
+  border-color: var(--accent);
 }
 </style>

@@ -1,9 +1,18 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useStudioStore } from '../stores/studio'
 import { t } from '../i18n'
-import type { FileNode } from '@shared/types'
+import type { FileChangeEvent, FileNode } from '@shared/types'
+
+const props = defineProps<{
+  selectedPath?: string | null
+}>()
+
+const emit = defineEmits<{
+  (event: 'open-preview', node: FileNode): void
+  (event: 'entry-deleted', node: FileNode): void
+}>()
 
 const store = useStudioStore()
 const roots = ref<FileNode[]>([])
@@ -11,25 +20,84 @@ const expanded = ref<Set<string>>(new Set())
 const childrenCache = ref<Record<string, FileNode[]>>({})
 const contextMenu = ref<{ node: FileNode; x: number; y: number } | null>(null)
 
+let refreshTimer: ReturnType<typeof window.setTimeout> | null = null
+let pollTimer: ReturnType<typeof window.setInterval> | null = null
+let watchedProjectPath: string | null = null
+let unsubscribeFileChanged: (() => void) | null = null
+let refreshRequestId = 0
+
 watch(
   () => store.activeProject?.path,
   async (path) => {
     expanded.value = new Set()
     childrenCache.value = {}
     closeContextMenu()
-    roots.value = path ? await window.studio.readDir(path) : []
+    await switchWatchedProject(path)
+    await refreshTree()
   },
   { immediate: true }
 )
 
+async function refreshTree(): Promise<void> {
+  const projectPath = store.activeProject?.path
+  const requestId = ++refreshRequestId
+  if (!projectPath) {
+    roots.value = []
+    childrenCache.value = {}
+    return
+  }
+
+  const nextRoots = await window.studio.readDir(projectPath)
+  if (requestId !== refreshRequestId || store.activeProject?.path !== projectPath) return
+  roots.value = nextRoots
+
+  const expandedPaths = [...expanded.value]
+  const entries = await Promise.all(
+    expandedPaths.map(async (path) => [path, await window.studio.readDir(path)] as const)
+  )
+  if (requestId !== refreshRequestId || store.activeProject?.path !== projectPath) return
+  childrenCache.value = Object.fromEntries(entries)
+}
+
+function scheduleRefresh(): void {
+  if (refreshTimer) window.clearTimeout(refreshTimer)
+  refreshTimer = window.setTimeout(() => {
+    refreshTimer = null
+    refreshTree()
+  }, 180)
+}
+
+async function switchWatchedProject(path?: string): Promise<void> {
+  if (watchedProjectPath) {
+    await window.studio.unwatchProjectFiles(watchedProjectPath)
+    watchedProjectPath = null
+  }
+
+  if (!path) return
+
+  watchedProjectPath = path
+  const result = await window.studio.watchProjectFiles(path)
+  if (!result.watching && result.error) {
+    console.warn('[FileExplorer] file watcher unavailable:', result.error)
+  }
+}
+
+function isActiveProjectChange(event: FileChangeEvent): boolean {
+  const projectPath = store.activeProject?.path
+  if (!projectPath) return false
+  return normalizePath(event.projectPath).toLowerCase() === normalizePath(projectPath).toLowerCase()
+}
+
 async function toggle(node: FileNode): Promise<void> {
-  if (!node.isDir) return
+  if (!node.isDir) {
+    emit('open-preview', node)
+    return
+  }
+
   if (expanded.value.has(node.path)) {
     expanded.value.delete(node.path)
   } else {
-    if (!childrenCache.value[node.path]) {
-      childrenCache.value[node.path] = await window.studio.readDir(node.path)
-    }
+    childrenCache.value[node.path] = await window.studio.readDir(node.path)
     expanded.value.add(node.path)
   }
 }
@@ -38,8 +106,8 @@ function openContextMenu(node: FileNode, event: MouseEvent): void {
   event.preventDefault()
   event.stopPropagation()
 
-  const menuWidth = 190
-  const menuHeight = 74
+  const menuWidth = 210
+  const menuHeight = node.isDir ? 214 : 244
   contextMenu.value = {
     node,
     x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
@@ -51,11 +119,15 @@ function closeContextMenu(): void {
   contextMenu.value = null
 }
 
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/\/+$/, '')
+}
+
 function relativePathFor(nodePath: string): string {
   const rootPath = store.activeProject?.path
   if (!rootPath) return nodePath
 
-  const normalizedRoot = rootPath.replace(/\\/g, '/').replace(/\/+$/, '')
+  const normalizedRoot = normalizePath(rootPath)
   const normalizedNode = nodePath.replace(/\\/g, '/')
   const rootPrefix = `${normalizedRoot}/`
 
@@ -64,6 +136,17 @@ function relativePathFor(nodePath: string): string {
 
   const relative = normalizedNode.slice(rootPrefix.length)
   return rootPath.includes('\\') ? relative.replace(/\//g, '\\') : relative
+}
+
+function parentPathFor(path: string): string {
+  const normalized = path.replace(/[\\/]+$/, '')
+  const slashIndex = Math.max(normalized.lastIndexOf('\\'), normalized.lastIndexOf('/'))
+  if (slashIndex <= 0) return store.activeProject?.path ?? normalized
+  return normalized.slice(0, slashIndex)
+}
+
+function createParentFor(node: FileNode): string {
+  return node.isDir ? node.path : parentPathFor(node.path)
 }
 
 function copyPath(kind: 'relative' | 'absolute'): void {
@@ -78,6 +161,79 @@ function copyPath(kind: 'relative' | 'absolute'): void {
   )
 }
 
+function openPreviewFromMenu(): void {
+  const node = contextMenu.value?.node
+  if (!node || node.isDir) return
+
+  closeContextMenu()
+  emit('open-preview', node)
+}
+
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
+function isDialogCancel(err: unknown): boolean {
+  return err === 'cancel' || err === 'close'
+}
+
+async function createEntry(type: 'file' | 'directory'): Promise<void> {
+  const node = contextMenu.value?.node
+  const projectPath = store.activeProject?.path
+  if (!node || !projectPath) return
+
+  const parentPath = createParentFor(node)
+  closeContextMenu()
+
+  try {
+    const { value } = await ElMessageBox.prompt(
+      t(type === 'file' ? 'explorer.create.file.prompt' : 'explorer.create.folder.prompt'),
+      t(type === 'file' ? 'explorer.create.file' : 'explorer.create.folder'),
+      {
+        inputPlaceholder: t('explorer.create.placeholder'),
+        confirmButtonText: t('dialog.create'),
+        cancelButtonText: t('common.cancel')
+      }
+    )
+    const name = String(value ?? '').trim()
+    if (!name) return
+
+    await window.studio.createFileEntry({ projectPath, parentPath, name, type })
+    await refreshTree()
+    ElMessage.success(t('explorer.create.done'))
+  } catch (err) {
+    if (!isDialogCancel(err)) ElMessage.error(errorText(err))
+  }
+}
+
+async function deleteEntry(): Promise<void> {
+  const node = contextMenu.value?.node
+  const projectPath = store.activeProject?.path
+  if (!node || !projectPath) return
+
+  closeContextMenu()
+
+  try {
+    await ElMessageBox.confirm(
+      t('explorer.delete.confirm', { name: node.name }),
+      t('explorer.delete'),
+      {
+        type: 'warning',
+        confirmButtonText: t('explorer.delete'),
+        cancelButtonText: t('common.cancel')
+      }
+    )
+
+    await window.studio.deleteFileEntry({ projectPath, path: node.path })
+    expanded.value.delete(node.path)
+    await refreshTree()
+    emit('entry-deleted', node)
+    ElMessage.success(t('explorer.delete.done'))
+  } catch (err) {
+    if (!isDialogCancel(err)) ElMessage.error(errorText(err))
+  }
+}
+
 function closeContextMenuOnEscape(event: KeyboardEvent): void {
   if (event.key === 'Escape') closeContextMenu()
 }
@@ -88,6 +244,11 @@ onMounted(() => {
   window.addEventListener('keydown', closeContextMenuOnEscape)
   window.addEventListener('blur', closeContextMenu)
   window.addEventListener('scroll', closeContextMenu, true)
+
+  unsubscribeFileChanged = window.studio.onFileChanged((event) => {
+    if (isActiveProjectChange(event)) scheduleRefresh()
+  })
+  pollTimer = window.setInterval(scheduleRefresh, 3500)
 })
 
 onBeforeUnmount(() => {
@@ -96,6 +257,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', closeContextMenuOnEscape)
   window.removeEventListener('blur', closeContextMenu)
   window.removeEventListener('scroll', closeContextMenu, true)
+  unsubscribeFileChanged?.()
+  if (refreshTimer) window.clearTimeout(refreshTimer)
+  if (pollTimer) window.clearInterval(pollTimer)
+  if (watchedProjectPath) window.studio.unwatchProjectFiles(watchedProjectPath)
 })
 </script>
 
@@ -111,8 +276,10 @@ onBeforeUnmount(() => {
         :depth="0"
         :expanded="expanded"
         :children-cache="childrenCache"
+        :selected-path="props.selectedPath"
         @toggle="toggle"
         @open-menu="openContextMenu"
+        @open-preview="emit('open-preview', $event)"
       />
     </ul>
     <div
@@ -122,11 +289,25 @@ onBeforeUnmount(() => {
       @click.stop
       @contextmenu.prevent.stop
     >
+      <button v-if="!contextMenu.node.isDir" type="button" @click="openPreviewFromMenu">
+        {{ t('explorer.preview') }}
+      </button>
       <button type="button" @click="copyPath('relative')">
         {{ t('explorer.copy.relative') }}
       </button>
       <button type="button" @click="copyPath('absolute')">
         {{ t('explorer.copy.absolute') }}
+      </button>
+      <div class="menu-separator" />
+      <button type="button" @click="createEntry('file')">
+        {{ t('explorer.create.file') }}
+      </button>
+      <button type="button" @click="createEntry('directory')">
+        {{ t('explorer.create.folder') }}
+      </button>
+      <div class="menu-separator" />
+      <button type="button" class="danger" @click="deleteEntry">
+        {{ t('explorer.delete') }}
       </button>
     </div>
   </div>
@@ -134,32 +315,70 @@ onBeforeUnmount(() => {
 
 <script lang="ts">
 import { defineComponent, h, type PropType } from 'vue'
+import type { FileNode } from '@shared/types'
 
-// Recursive row rendered with a render function so it can reference itself.
+function rowIcon(isDir: boolean, isOpen: boolean) {
+  if (isDir) {
+    return h(
+      'svg',
+      { class: 'row-icon', viewBox: '0 0 16 16', 'aria-hidden': 'true' },
+      [
+        h('path', {
+          d: isOpen
+            ? 'M2 5.25h4.1l1.15 1.25H14l-1.2 6H3.05L2 5.25Zm0-2h4.45l1.1 1.25H14v2H7.25L6.1 5.25H2v-2Z'
+            : 'M2 4h4.45l1.1 1.25H14v7.5H2V4Z',
+          fill: 'currentColor'
+        })
+      ]
+    )
+  }
+
+  return h(
+    'svg',
+    { class: 'row-icon', viewBox: '0 0 16 16', 'aria-hidden': 'true' },
+    [
+      h('path', {
+        d: 'M4 2.5h5.4L12 5.1v8.4H4v-11Zm5.1.9v2h2M5.6 8h4.8M5.6 10.2h3.2',
+        fill: 'none',
+        stroke: 'currentColor',
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'stroke-width': '1.2'
+      })
+    ]
+  )
+}
+
 const FileRow = defineComponent({
   name: 'FileRow',
   props: {
     node: { type: Object as PropType<FileNode>, required: true },
     depth: { type: Number, required: true },
     expanded: { type: Object as PropType<Set<string>>, required: true },
-    childrenCache: { type: Object as PropType<Record<string, FileNode[]>>, required: true }
+    childrenCache: { type: Object as PropType<Record<string, FileNode[]>>, required: true },
+    selectedPath: { type: String as PropType<string | null | undefined>, default: null }
   },
-  emits: ['toggle', 'open-menu'],
+  emits: ['toggle', 'open-menu', 'open-preview'],
   setup(props, { emit }) {
     return () => {
       const isOpen = props.expanded.has(props.node.path)
-      const icon = props.node.isDir ? (isOpen ? '▾' : '▸') : '·'
       const rows = [
         h(
           'li',
           {
-            class: 'row-item',
+            class: [
+              'row-item',
+              {
+                selected: !props.node.isDir && props.selectedPath === props.node.path
+              }
+            ],
             style: { paddingLeft: `${props.depth * 14 + 6}px` },
+            title: props.node.path,
             onClick: () => emit('toggle', props.node),
             onContextmenu: (event: MouseEvent) => emit('open-menu', props.node, event)
           },
           [
-            h('span', { class: 'icon' }, icon),
+            rowIcon(props.node.isDir, isOpen),
             h('span', { class: props.node.isDir ? 'dir' : 'file' }, props.node.name)
           ]
         )
@@ -173,8 +392,10 @@ const FileRow = defineComponent({
               depth: props.depth + 1,
               expanded: props.expanded,
               childrenCache: props.childrenCache,
+              selectedPath: props.selectedPath,
               onToggle: (n: FileNode) => emit('toggle', n),
-              onOpenMenu: (n: FileNode, event: MouseEvent) => emit('open-menu', n, event)
+              onOpenMenu: (n: FileNode, event: MouseEvent) => emit('open-menu', n, event),
+              onOpenPreview: (n: FileNode) => emit('open-preview', n)
             })
           )
         }
@@ -191,10 +412,13 @@ export default {
 
 <style scoped>
 .explorer {
-  padding: 8px;
+  padding: 0 0 8px;
 }
 .section-head {
-  padding: 4px 4px 8px;
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
   font-weight: 600;
   color: var(--text-dim);
   text-transform: uppercase;
@@ -203,7 +427,7 @@ export default {
 }
 .empty {
   color: var(--text-dim);
-  padding: 8px 6px;
+  padding: 8px 12px;
   font-size: 12px;
 }
 .tree {
@@ -214,10 +438,10 @@ export default {
 .context-menu {
   position: fixed;
   z-index: 50;
-  min-width: 178px;
+  min-width: 198px;
   padding: 5px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 2px;
   background: var(--bg-soft);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
 }
@@ -228,7 +452,7 @@ export default {
   align-items: center;
   padding: 0 10px;
   border: 0;
-  border-radius: 4px;
+  border-radius: 0;
   background: transparent;
   color: var(--text);
   font: inherit;
@@ -236,29 +460,48 @@ export default {
   cursor: pointer;
 }
 .context-menu button:hover {
-  background: var(--bg-panel);
-  color: var(--accent);
+  background: var(--list-focus);
+  color: var(--text);
+}
+.context-menu button.danger:hover {
+  color: #f38ba8;
+}
+.menu-separator {
+  height: 1px;
+  margin: 5px 3px;
+  background: var(--border);
 }
 :deep(.row-item) {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 4px;
-  border-radius: 4px;
+  min-height: 22px;
+  padding: 2px 8px 2px 4px;
+  border-radius: 0;
   cursor: pointer;
   white-space: nowrap;
 }
 :deep(.row-item:hover) {
-  background: var(--bg-panel);
+  background: var(--list-hover);
 }
-:deep(.icon) {
-  width: 12px;
+:deep(.row-item.selected) {
+  background: var(--list-focus);
+  color: var(--text);
+}
+:deep(.row-icon) {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
   color: var(--text-dim);
 }
 :deep(.dir) {
-  color: var(--accent);
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
 }
 :deep(.file) {
+  overflow: hidden;
   color: var(--text);
+  text-overflow: ellipsis;
 }
 </style>

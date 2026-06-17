@@ -3,6 +3,14 @@ import type {
   Project,
   Agent,
   FileNode,
+  FileChangeEvent,
+  FileCreateInput,
+  FileDeleteInput,
+  FileOperationResult,
+  FilePreview,
+  FilePreviewInput,
+  FileWatchResult,
+  FileWriteInput,
   CreateAgentInput,
   CreateVersionConnectionInput,
   PtyStartInput,
@@ -35,6 +43,23 @@ const api = {
 
   // File tree
   readDir: (dirPath: string): Promise<FileNode[]> => ipcRenderer.invoke('fs:readdir', dirPath),
+  readFilePreview: (input: FilePreviewInput): Promise<FilePreview> =>
+    ipcRenderer.invoke('fs:preview', input),
+  createFileEntry: (input: FileCreateInput): Promise<FileOperationResult> =>
+    ipcRenderer.invoke('fs:create', input),
+  deleteFileEntry: (input: FileDeleteInput): Promise<FileOperationResult> =>
+    ipcRenderer.invoke('fs:delete', input),
+  writeFileContent: (input: FileWriteInput): Promise<FileOperationResult> =>
+    ipcRenderer.invoke('fs:writeFile', input),
+  watchProjectFiles: (projectPath: string): Promise<FileWatchResult> =>
+    ipcRenderer.invoke('fs:watchProject', projectPath),
+  unwatchProjectFiles: (projectPath: string): Promise<FileWatchResult> =>
+    ipcRenderer.invoke('fs:unwatchProject', projectPath),
+  onFileChanged: (cb: (e: FileChangeEvent) => void): (() => void) => {
+    const handler = (_e: IpcRendererEvent, payload: FileChangeEvent): void => cb(payload)
+    ipcRenderer.on('fs:changed', handler)
+    return () => ipcRenderer.removeListener('fs:changed', handler)
+  },
 
   // Clipboard
   readClipboardText: (): string => clipboard.readText(),

@@ -61,21 +61,24 @@ defineExpose({ open })
 .grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 8px;
 }
 .card {
-  border: 1px solid var(--el-border-color, #dcdfe6);
-  border-radius: 8px;
-  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  padding: 12px;
+  background: var(--bg);
+  color: var(--text);
   cursor: pointer;
   transition: all 0.15s;
 }
 .card:hover {
-  border-color: var(--el-color-primary);
+  border-color: var(--accent);
+  background: var(--list-hover);
 }
 .card.active {
-  border-color: var(--el-color-primary);
-  background: var(--el-color-primary-light-9);
+  border-color: var(--accent);
+  background: var(--list-focus);
 }
 .card-label {
   font-weight: 600;
@@ -84,7 +87,7 @@ defineExpose({ open })
 }
 .card-cmd {
   font-size: 12px;
-  color: var(--el-text-color-secondary);
+  color: var(--text-dim);
 }
 .name-input {
   margin-top: 14px;

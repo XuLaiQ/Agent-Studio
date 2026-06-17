@@ -387,7 +387,7 @@ onMounted(() => {
 
 <style scoped>
 .version-panel {
-  padding: 8px;
+  padding: 0 0 10px;
 }
 .icon-sprite {
   display: none;
@@ -405,7 +405,8 @@ onMounted(() => {
 }
 .section-head {
   justify-content: space-between;
-  padding: 4px 2px 8px;
+  min-height: 34px;
+  padding: 0 8px 0 12px;
 }
 .section-title {
   min-width: 0;
@@ -440,7 +441,7 @@ onMounted(() => {
 .commit-btn,
 .add-form button {
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 2px;
   background: var(--bg-panel);
   color: var(--text);
   cursor: pointer;
@@ -455,7 +456,8 @@ onMounted(() => {
 }
 .icon-action:hover,
 .branch-row:hover {
-  color: var(--accent);
+  color: var(--text);
+  background: var(--list-hover);
 }
 .icon-action:disabled {
   cursor: not-allowed;
@@ -464,10 +466,11 @@ onMounted(() => {
 .repo-header {
   justify-content: space-between;
   gap: 8px;
-  padding: 6px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: rgba(42, 42, 60, 0.5);
+  padding: 6px 12px;
+  border: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
 }
 .repo-header strong,
 .repo-header span,
@@ -489,14 +492,14 @@ onMounted(() => {
   font-size: 11px;
 }
 .empty {
-  padding: 9px 6px;
+  padding: 9px 12px;
   line-height: 1.4;
 }
 .empty.small {
-  padding: 6px;
+  padding: 6px 12px;
 }
 .commit-box {
-  padding-top: 8px;
+  padding: 8px 12px 0;
 }
 .commit-input {
   width: 100%;
@@ -504,7 +507,7 @@ onMounted(() => {
   min-height: 54px;
   max-height: 120px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 2px;
   background: var(--bg);
   color: var(--text);
   font: inherit;
@@ -523,7 +526,7 @@ onMounted(() => {
 }
 .details,
 .group {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 .details summary,
 .group-head {
@@ -534,11 +537,16 @@ onMounted(() => {
   text-transform: uppercase;
 }
 .details summary {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
   cursor: pointer;
 }
 .group-head {
   justify-content: space-between;
   height: 26px;
+  padding: 0 8px 0 12px;
 }
 .branch-row,
 .commit-row,
@@ -546,7 +554,7 @@ onMounted(() => {
   width: 100%;
   min-width: 0;
   border: 0;
-  border-radius: 5px;
+  border-radius: 0;
   background: transparent;
   color: var(--text);
   cursor: pointer;
@@ -557,11 +565,11 @@ onMounted(() => {
   display: grid;
   grid-template-columns: 18px 1fr;
   gap: 6px;
-  padding: 4px 5px;
+  padding: 4px 12px;
 }
 .branch-row.current {
-  background: rgba(137, 180, 250, 0.12);
-  color: var(--accent);
+  background: var(--list-focus);
+  color: var(--text);
 }
 .branch-row small {
   grid-column: 2;
@@ -570,10 +578,10 @@ onMounted(() => {
   display: grid;
   grid-template-columns: 18px 1fr;
   gap: 6px;
-  padding: 5px;
+  padding: 5px 12px;
 }
 .commit-row:hover {
-  background: var(--bg-panel);
+  background: var(--list-hover);
 }
 .commit-row svg {
   margin-top: 2px;
@@ -603,35 +611,35 @@ onMounted(() => {
 }
 .branch-create {
   grid-template-columns: 1fr 24px;
-  margin-top: 6px;
+  margin: 6px 12px 0;
 }
 .change-row {
   position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 3px;
-  padding: 4px 6px;
+  margin-top: 0;
+  padding: 4px 12px;
 }
 .change-row:hover {
-  background: var(--bg-panel);
+  background: var(--list-hover);
 }
 .status-badge {
   flex: 0 0 18px;
   width: 18px;
-  color: #f9e2af;
+  color: var(--warning);
   font-size: 11px;
   font-weight: 700;
   text-align: center;
 }
 .status-badge[data-status='U'] {
-  color: #a6e3a1;
+  color: var(--success);
 }
 .status-badge[data-status='D'] {
-  color: #f38ba8;
+  color: var(--danger);
 }
 .status-badge[data-status='R'] {
-  color: #cba6f7;
+  color: var(--accent-strong);
 }
 .file-path {
   display: block;
@@ -646,7 +654,7 @@ onMounted(() => {
   right: 6px;
   max-width: 76px;
   padding-left: 10px;
-  background: linear-gradient(90deg, transparent, var(--bg-panel) 22%);
+  background: linear-gradient(90deg, transparent, var(--list-hover) 22%);
   color: var(--text-dim);
   font-size: 11px;
   opacity: 0;
@@ -657,11 +665,11 @@ onMounted(() => {
 .connection-row {
   justify-content: space-between;
   gap: 8px;
-  padding: 6px 0;
+  padding: 6px 12px;
 }
 .add-form {
   grid-template-columns: 1fr 74px;
-  margin-top: 6px;
+  margin: 6px 12px 0;
 }
 .add-form input,
 .add-form select,
@@ -669,7 +677,7 @@ onMounted(() => {
   min-width: 0;
   height: 26px;
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: 2px;
   background: var(--bg);
   color: var(--text);
   font: inherit;

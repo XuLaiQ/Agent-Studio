@@ -193,7 +193,15 @@ async function closeAllAgents(): Promise<void> {
                 :title="t('agent.close.button')"
                 @click.stop="closeAgent(agent)"
               >
-                x
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path
+                    d="M4.5 4.5 11.5 11.5M11.5 4.5 4.5 11.5"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-width="1.5"
+                  />
+                </svg>
               </button>
             </header>
             <div class="terminal-body">
@@ -227,14 +235,15 @@ async function closeAllAgents(): Promise<void> {
 }
 .big {
   font-size: 56px;
-  color: var(--accent);
-  opacity: 0.4;
+  color: var(--text-muted);
+  opacity: 0.45;
 }
 .tabbar {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
+  min-height: 36px;
+  padding: 4px 10px;
   background: var(--bg-soft);
   border-bottom: 1px solid var(--border);
 }
@@ -277,9 +286,10 @@ async function closeAllAgents(): Promise<void> {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
   grid-auto-rows: minmax(280px, 1fr);
-  gap: 8px;
-  padding: 8px;
+  gap: 1px;
+  padding: 0;
   overflow: auto;
+  background: var(--border);
 }
 .terminal-panel {
   min-width: 0;
@@ -287,19 +297,19 @@ async function closeAllAgents(): Promise<void> {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: #1e1e2e;
+  border: 0;
+  border-radius: 0;
+  background: var(--bg);
 }
 .terminal-panel.active {
-  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 .terminal-panel.dragging {
   opacity: 0.55;
 }
 .terminal-head {
   flex: 0 0 auto;
-  height: 30px;
+  height: 31px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -334,7 +344,7 @@ async function closeAllAgents(): Promise<void> {
 .terminal-name {
   min-width: 0;
   overflow: hidden;
-  font-weight: 600;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -345,15 +355,26 @@ async function closeAllAgents(): Promise<void> {
 }
 .close {
   flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
   border: 0;
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 15px;
-  line-height: 1;
+  opacity: 0;
+}
+.close svg {
+  width: 14px;
+  height: 14px;
+}
+.terminal-panel:hover .close,
+.terminal-panel.active .close {
+  opacity: 1;
 }
 .close:hover {
-  color: #f38ba8;
+  color: var(--danger);
 }
 .terminal-body {
   flex: 1;

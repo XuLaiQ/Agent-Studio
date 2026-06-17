@@ -30,6 +30,61 @@ export interface FileNode {
   children?: FileNode[]
 }
 
+export type FilePreviewKind = 'text' | 'image' | 'binary' | 'too-large' | 'error'
+
+export interface FilePreview {
+  path: string
+  name: string
+  extension: string
+  size: number
+  mtimeMs: number
+  kind: FilePreviewKind
+  mime?: string
+  content?: string
+  dataUrl?: string
+  truncated?: boolean
+  message?: string
+}
+
+export interface FilePreviewInput {
+  projectPath: string
+  path: string
+}
+
+export interface FileCreateInput {
+  projectPath: string
+  parentPath: string
+  name: string
+  type: 'file' | 'directory'
+}
+
+export interface FileDeleteInput {
+  projectPath: string
+  path: string
+}
+
+export interface FileWriteInput {
+  projectPath: string
+  path: string
+  content: string
+}
+
+export interface FileOperationResult {
+  path: string
+}
+
+export interface FileWatchResult {
+  watching: boolean
+  error?: string
+}
+
+export interface FileChangeEvent {
+  projectPath: string
+  eventType: string
+  filename?: string
+  timestamp: number
+}
+
 export type VersionProvider = 'git' | 'github' | 'gitlab'
 
 export interface VersionToolStatus {

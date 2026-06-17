@@ -97,7 +97,17 @@ onBeforeUnmount(() => {
           <span class="path">{{ p.path }}</span>
         </div>
         <span class="badge">{{ p.agents.length }}</span>
-        <span class="del" :title="t('projects.remove.tip')" @click.stop="confirmRemove(p)">×</span>
+        <button class="del" type="button" :title="t('projects.remove.tip')" @click.stop="confirmRemove(p)">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M4.5 4.5 11.5 11.5M11.5 4.5 4.5 11.5"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="1.5"
+            />
+          </svg>
+        </button>
       </li>
     </ul>
 
@@ -117,13 +127,14 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .sidebar {
-  padding: 8px;
+  padding: 0 0 8px;
 }
 .section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 4px 8px;
+  min-height: 36px;
+  padding: 0 12px;
   font-weight: 600;
   color: var(--text-dim);
   text-transform: uppercase;
@@ -132,7 +143,7 @@ onBeforeUnmount(() => {
 }
 .empty {
   color: var(--text-dim);
-  padding: 16px 6px;
+  padding: 14px 12px;
   line-height: 1.6;
   font-size: 12px;
 }
@@ -145,16 +156,17 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  min-height: 34px;
+  padding: 4px 8px 4px 12px;
+  border-radius: 0;
   cursor: pointer;
 }
 .list li:hover {
-  background: var(--bg-panel);
+  background: var(--list-hover);
 }
 .list li.active {
-  background: var(--bg-panel);
-  outline: 1px solid var(--accent);
+  background: var(--list-focus);
+  outline: 0;
 }
 .proj {
   flex: 1;
@@ -163,7 +175,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 .name {
-  font-weight: 600;
+  color: var(--text);
+  font-weight: 500;
 }
 .path {
   font-size: 11px;
@@ -173,20 +186,34 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
 }
 .badge {
-  background: var(--border);
-  border-radius: 10px;
+  background: var(--bg-elevated);
+  border-radius: 999px;
   padding: 0 7px;
   font-size: 11px;
   color: var(--text-dim);
 }
 .del {
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--text-dim);
-  font-size: 16px;
-  line-height: 1;
-  padding: 0 2px;
+  cursor: pointer;
+  opacity: 0;
+}
+.del svg {
+  width: 14px;
+  height: 14px;
+}
+.list li:hover .del,
+.list li.active .del {
+  opacity: 1;
 }
 .del:hover {
-  color: #f38ba8;
+  color: var(--danger);
 }
 .context-menu {
   position: fixed;
@@ -194,7 +221,7 @@ onBeforeUnmount(() => {
   min-width: 178px;
   padding: 5px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 2px;
   background: var(--bg-soft);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
 }
@@ -205,7 +232,7 @@ onBeforeUnmount(() => {
   align-items: center;
   padding: 0 10px;
   border: 0;
-  border-radius: 4px;
+  border-radius: 0;
   background: transparent;
   color: var(--text);
   cursor: pointer;
@@ -213,7 +240,7 @@ onBeforeUnmount(() => {
   text-align: left;
 }
 .context-menu button:hover {
-  background: var(--bg-panel);
-  color: var(--accent);
+  background: var(--list-focus);
+  color: var(--text);
 }
 </style>
