@@ -78,7 +78,8 @@ defineExpose({ open })
 }
 .card.active {
   border-color: var(--accent);
-  background: var(--list-focus);
+  background: var(--list-active);
+  box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.45);
 }
 .card-label {
   font-weight: 600;

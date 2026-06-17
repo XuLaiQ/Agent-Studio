@@ -53,10 +53,10 @@ onMounted(() => {
     cursorBlink: true,
     allowProposedApi: true,
     theme: {
-      background: '#1e1e1e',
-      foreground: '#cccccc',
-      cursor: '#aeafad',
-      selectionBackground: '#264f78'
+      background: '#0A0A0F',
+      foreground: '#F5F5F7',
+      cursor: '#9D74FF',
+      selectionBackground: '#4C1D95'
     }
   })
   fit = new FitAddon()
@@ -151,7 +151,7 @@ function copySelection(event: MouseEvent): void {
   position: absolute;
   inset: 0;
   padding: 6px 8px;
-  background: var(--bg);
+  background: var(--bg-terminal);
 }
 .term-host {
   width: 100%;
@@ -167,7 +167,7 @@ function copySelection(event: MouseEvent): void {
   place-items: center;
   border: 1px solid var(--border);
   border-radius: 2px;
-  background: rgba(45, 45, 45, 0.88);
+  background: rgba(22, 22, 31, 0.9);
   color: var(--text-dim);
   cursor: pointer;
   opacity: 0;
@@ -182,6 +182,6 @@ function copySelection(event: MouseEvent): void {
 }
 .restart:hover {
   color: var(--text);
-  border-color: var(--accent);
+  border-color: var(--accent-hover);
 }
 </style>

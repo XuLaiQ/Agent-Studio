@@ -14,9 +14,9 @@ const agentOrder = ref<Record<string, string[]>>({})
 const dragged = ref<{ projectId: string; agentId: string } | null>(null)
 
 const statusColor: Record<AgentStatus, string> = {
-  idle: '#9399b2',
-  running: '#a6e3a1',
-  error: '#f38ba8'
+  idle: '#6B7280',
+  running: '#10B981',
+  error: '#EF4444'
 }
 
 const visitedProjects = computed(() =>
@@ -169,7 +169,10 @@ async function closeAllAgents(): Promise<void> {
             class="terminal-panel"
             :class="{
               active: agent.id === store.activeAgentId,
-              dragging: dragged?.agentId === agent.id
+              dragging: dragged?.agentId === agent.id,
+              running: store.statusOf(agent.id) === 'running',
+              idle: store.statusOf(agent.id) === 'idle',
+              error: store.statusOf(agent.id) === 'error'
             }"
             @click="store.selectAgent(agent.id)"
             @dragover="dragOver"
@@ -300,9 +303,19 @@ async function closeAllAgents(): Promise<void> {
   border: 0;
   border-radius: 0;
   background: var(--bg);
+  border-left: 3px solid var(--text-muted);
 }
 .terminal-panel.active {
-  box-shadow: inset 0 0 0 1px var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.75);
+}
+.terminal-panel.running {
+  border-left-color: var(--success);
+}
+.terminal-panel.idle {
+  border-left-color: var(--text-muted);
+}
+.terminal-panel.error {
+  border-left-color: var(--danger);
 }
 .terminal-panel.dragging {
   opacity: 0.55;
@@ -318,6 +331,18 @@ async function closeAllAgents(): Promise<void> {
   background: var(--bg-soft);
   border-bottom: 1px solid var(--border);
   cursor: grab;
+}
+.terminal-panel.active .terminal-head {
+  background: var(--accent);
+  color: #ffffff;
+}
+.terminal-panel.active .terminal-type,
+.terminal-panel.active .drag-handle,
+.terminal-panel.active .close {
+  color: rgba(255, 255, 255, 0.78);
+}
+.terminal-panel.active .dot {
+  outline: 1px solid rgba(255, 255, 255, 0.5);
 }
 .terminal-head:active {
   cursor: grabbing;

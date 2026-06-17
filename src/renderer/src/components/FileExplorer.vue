@@ -464,7 +464,7 @@ export default {
   color: var(--text);
 }
 .context-menu button.danger:hover {
-  color: #f38ba8;
+  color: var(--danger);
 }
 .menu-separator {
   height: 1px;

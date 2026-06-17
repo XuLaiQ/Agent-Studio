@@ -20,6 +20,7 @@ const store = useStudioStore()
 const leftWidth = ref(Number(localStorage.getItem('agent-studio.leftWidth')) || 300)
 const selectedPreviewFile = ref<FileNode | null>(null)
 const activeWorkspace = ref<'agents' | 'preview'>('agents')
+const sidebarView = ref<'explorer' | 'sourceControl'>('explorer')
 let resizing = false
 
 function clampLeftWidth(width: number): number {
@@ -112,7 +113,13 @@ watch(
 
       <div class="body">
         <nav class="activity-bar" aria-label="Workbench">
-          <button type="button" class="activity-item active" :title="t('projects.title')">
+          <button
+            type="button"
+            class="activity-item"
+            :class="{ active: sidebarView === 'explorer' }"
+            :title="t('explorer.title')"
+            @click="sidebarView = 'explorer'"
+          >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
                 d="M3.5 5.5h6l1.8 2h9.2v11h-17v-13Z"
@@ -123,7 +130,13 @@ watch(
               />
             </svg>
           </button>
-          <button type="button" class="activity-item" :title="t('version.title')">
+          <button
+            type="button"
+            class="activity-item"
+            :class="{ active: sidebarView === 'sourceControl' }"
+            :title="t('version.title')"
+            @click="sidebarView = 'sourceControl'"
+          >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="7" cy="5" r="2" fill="currentColor" />
               <circle cx="7" cy="19" r="2" fill="currentColor" />
@@ -137,53 +150,19 @@ watch(
               />
             </svg>
           </button>
-          <button
-            type="button"
-            class="activity-item"
-            :class="{ active: activeWorkspace === 'agents' }"
-            :title="t('workspace.agentsTab')"
-            @click="activeWorkspace = 'agents'"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M4 6h16v10H4V6Zm4 14h8M10 16v4m4-4v4"
-                fill="none"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.6"
-              />
-            </svg>
-          </button>
-          <button
-            type="button"
-            class="activity-item"
-            :class="{ active: activeWorkspace === 'preview' }"
-            :title="t('workspace.previewTab')"
-            @click="activeWorkspace = 'preview'"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M7 3.5h7l3 3v14H7v-17Zm6.8.7v3.4h3.4M9.5 12h5M9.5 15h4"
-                fill="none"
-                stroke="currentColor"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.5"
-              />
-            </svg>
-          </button>
         </nav>
 
         <aside class="left" :style="{ width: `${leftWidth}px` }">
-          <ProjectSidebar class="left-top" />
-          <VersionControlPanel class="left-middle" />
-          <FileExplorer
-            class="left-bottom"
-            :selected-path="selectedPreviewFile?.path"
-            @open-preview="openFilePreview"
-            @entry-deleted="handleDeletedEntry"
-          />
+          <template v-if="sidebarView === 'explorer'">
+            <ProjectSidebar class="left-top" />
+            <FileExplorer
+              class="left-bottom"
+              :selected-path="selectedPreviewFile?.path"
+              @open-preview="openFilePreview"
+              @entry-deleted="handleDeletedEntry"
+            />
+          </template>
+          <VersionControlPanel v-else class="source-control-sidebar" />
         </aside>
         <div
           class="splitter"
@@ -311,7 +290,7 @@ watch(
   top: 8px;
   bottom: 8px;
   width: 2px;
-  background: var(--text);
+  background: var(--accent);
 }
 .left {
   min-width: 240px;
@@ -331,19 +310,18 @@ watch(
 }
 .left-top {
   flex: 0 0 auto;
-  max-height: 30%;
-  overflow: auto;
-}
-.left-middle {
-  flex: 0 0 auto;
   max-height: 38%;
-  border-top: 1px solid var(--border);
   overflow: auto;
 }
 .left-bottom {
   flex: 1;
   min-height: 0;
   border-top: 1px solid var(--border);
+  overflow: auto;
+}
+.source-control-sidebar {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 .main {
@@ -379,7 +357,7 @@ watch(
 }
 .main-switcher button:hover {
   color: var(--text);
-  background: #323233;
+  background: var(--bg-elevated);
 }
 .main-switcher button.active {
   background: var(--editor-tab-active);

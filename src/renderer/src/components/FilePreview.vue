@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { t } from '../i18n'
+import MonacoCodeEditor from './MonacoCodeEditor.vue'
 import type { FileChangeEvent, FileNode, FilePreview as FilePreviewData } from '@shared/types'
 
 const props = defineProps<{
@@ -163,13 +164,6 @@ async function reloadFromDisk(): Promise<void> {
   await loadPreview()
 }
 
-function handleEditorKeydown(event: KeyboardEvent): void {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
-    event.preventDefault()
-    saveFile()
-  }
-}
-
 watch(
   () => [props.file?.path, props.projectPath],
   () => {
@@ -306,13 +300,12 @@ onBeforeUnmount(() => {
         <div v-else-if="externalChanged" class="notice warning">
           {{ t('preview.externalChanged') }}
         </div>
-        <textarea
+        <MonacoCodeEditor
           v-model="editorContent"
           class="editor"
+          :file-name="preview.name"
           :readonly="!canEdit"
-          spellcheck="false"
-          :aria-label="t('preview.editorLabel')"
-          @keydown="handleEditorKeydown"
+          @save="saveFile"
         />
       </div>
 
@@ -426,9 +419,13 @@ onBeforeUnmount(() => {
   color: var(--text);
 }
 .editor-actions button.primary {
-  border-color: #0e639c;
-  background: #0e639c;
+  border-color: var(--accent);
+  background: var(--accent);
   color: #ffffff;
+}
+.editor-actions button.primary:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
 }
 .editor-actions button:disabled {
   cursor: not-allowed;
@@ -503,7 +500,7 @@ onBeforeUnmount(() => {
   border: 0;
   outline: 0;
   resize: none;
-  background: var(--bg);
+  background: var(--bg-terminal);
   color: var(--text);
   font-family: 'Consolas', 'Cascadia Mono', monospace;
   font-size: 12px;
