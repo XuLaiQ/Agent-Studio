@@ -2,10 +2,14 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { ElMessage } from 'element-plus'
 import { t } from '../i18n'
+import { useStudioStore } from '../stores/studio'
 import { AGENT_MODELS, liveModelCommand, type Agent, type SessionSummary } from '@shared/types'
 
 const props = defineProps<{ agent: Agent; projectPath: string }>()
+
+const store = useStudioStore()
 
 const host = ref<HTMLDivElement>()
 let term: Terminal | null = null
@@ -55,6 +59,7 @@ async function loadSessions(): Promise<void> {
 function toggleHistory(): void {
   historyOpen.value = !historyOpen.value
   modelOpen.value = false
+  forwardOpen.value = false
   if (historyOpen.value) loadSessions()
 }
 
@@ -65,9 +70,56 @@ function resumeSession(id: string): void {
   startSession({ resumeSessionId: id })
 }
 
+// ---- Agent Bus (forward to another agent) ----
+const forwardOpen = ref(false)
+const forwardText = ref('')
+
+/** Other agents in the same project — the possible forward targets. */
+const otherAgents = computed(() => {
+  const project = store.projects.find((p) => p.id === props.agent.projectId)
+  return (project?.agents ?? []).filter((a) => a.id !== props.agent.id)
+})
+
+function toggleForward(): void {
+  forwardOpen.value = !forwardOpen.value
+  modelOpen.value = false
+  historyOpen.value = false
+}
+
+/** Message to forward: the composer text, or the current terminal selection. */
+function forwardPayload(): string {
+  return forwardText.value.trim() || term?.getSelection().trim() || ''
+}
+
+async function forwardTo(toAgentId: string | null): Promise<void> {
+  const text = forwardPayload()
+  if (!text) {
+    ElMessage.warning(t('terminal.forward.empty'))
+    return
+  }
+
+  const result = await window.studio.sendToAgent({
+    projectId: props.agent.projectId,
+    fromAgentId: props.agent.id,
+    toAgentId,
+    text,
+    submit: true
+  })
+
+  forwardOpen.value = false
+  forwardText.value = ''
+
+  if (result.delivered.length) {
+    ElMessage.success(t('terminal.forward.sent', { count: result.delivered.length }))
+  } else {
+    ElMessage.warning(t('terminal.forward.noTarget'))
+  }
+}
+
 function closePopovers(): void {
   modelOpen.value = false
   historyOpen.value = false
+  forwardOpen.value = false
 }
 
 function doFit(): void {
@@ -193,14 +245,14 @@ function copySelection(event: MouseEvent): void {
   <div class="term-wrap">
     <div ref="host" class="term-host" @click="term?.focus()" @contextmenu="copySelection" />
 
-    <div class="term-toolbar" :class="{ open: modelOpen || historyOpen }" @click.stop>
+    <div class="term-toolbar" :class="{ open: modelOpen || historyOpen || forwardOpen }" @click.stop>
       <!-- Model switcher -->
       <div v-if="hasModelSwitch" class="tool">
         <button
           class="tool-btn model-btn"
           type="button"
           :title="t('terminal.model')"
-          @click="(modelOpen = !modelOpen), (historyOpen = false)"
+          @click="(modelOpen = !modelOpen), (historyOpen = false), (forwardOpen = false)"
         >
           {{ currentModelLabel }}
         </button>
@@ -262,6 +314,58 @@ function copySelection(event: MouseEvent): void {
               {{ s.title }}
             </li>
           </ul>
+        </div>
+      </div>
+
+      <!-- Forward to another agent (Agent Bus) -->
+      <div class="tool">
+        <button
+          class="tool-btn"
+          type="button"
+          :title="t('terminal.forward.title')"
+          @click="toggleForward"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M2.5 8h9M8 4.5 11.5 8 8 11.5"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.4"
+            />
+          </svg>
+        </button>
+        <div v-if="forwardOpen" class="popover forward-popover">
+          <textarea
+            v-model="forwardText"
+            class="forward-input"
+            rows="2"
+            :placeholder="t('terminal.forward.placeholder')"
+            @keydown.stop
+          />
+          <div class="forward-head">{{ t('terminal.forward.target') }}</div>
+          <ul class="forward-list">
+            <li v-if="!otherAgents.length" class="forward-empty">
+              {{ t('terminal.forward.noAgents') }}
+            </li>
+            <li
+              v-for="a in otherAgents"
+              :key="a.id"
+              class="forward-item"
+              @click="forwardTo(a.id)"
+            >
+              {{ a.name }}
+            </li>
+          </ul>
+          <button
+            v-if="otherAgents.length"
+            class="forward-broadcast"
+            type="button"
+            @click="forwardTo(null)"
+          >
+            {{ t('terminal.forward.broadcast') }}
+          </button>
         </div>
       </div>
 
@@ -420,5 +524,74 @@ function copySelection(event: MouseEvent): void {
   text-align: center;
   color: var(--text-dim);
   font-size: 12px;
+}
+
+/* Forward (Agent Bus) */
+.forward-popover {
+  width: 240px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.forward-input {
+  width: 100%;
+  resize: none;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: rgba(10, 10, 15, 0.9);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+}
+.forward-input:focus {
+  border-color: var(--accent-hover);
+}
+.forward-head {
+  color: var(--text-dim);
+  font-size: 11px;
+  padding: 0 2px;
+}
+.forward-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.forward-item {
+  padding: 6px 8px;
+  border-radius: 2px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.forward-item:hover {
+  background: rgba(157, 116, 255, 0.16);
+  color: var(--text);
+}
+.forward-empty {
+  padding: 10px 8px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+.forward-broadcast {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: rgba(157, 116, 255, 0.16);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+}
+.forward-broadcast:hover {
+  background: rgba(157, 116, 255, 0.28);
 }
 </style>

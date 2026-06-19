@@ -19,6 +19,7 @@ Import project -> Create agent -> Launch CLI -> View live terminal
 - **Add agent**: Choose Claude, Codex, Gemini, or OpenCode for the active project.
 - **Live terminals**: Each agent starts its CLI through a real PTY. On Windows, it uses ConPTY and provides full interactive I/O through xterm.js.
 - **Tabs**: Switch between agents while terminals keep running in the background. Status dots show idle, running, or error states. Restart relaunches the CLI.
+- **Agent Bus (message forwarding)**: Forward a message from one agent to another — or broadcast to every other agent in the project — straight from the terminal toolbar. The payload is the text you type, or the current terminal selection when left empty. It is injected into the target terminal as `[来自 {source}] {text}` and auto-submitted, so the receiving CLI starts processing immediately. Backed by `src/main/agentBus.ts` and the `bus:send` IPC channel.
 - **Language switch**: Toggle the UI between English and Chinese from the header; the choice is persisted and Element Plus components follow the same language. See [UI Language](#ui-language).
 - **Persistence**: Projects and agents are stored as JSON in Electron's `userData` directory.
 
@@ -157,6 +158,6 @@ The standard `node-pty` package usually compiles native code during installation
 ## Roadmap
 
 - Split view, such as Claude and Codex running side by side.
-- Agent Bus for message passing between agents.
+- Agent Bus for message passing between agents — ✅ message forwarding (single + broadcast) shipped; task collaboration and result sharing still planned.
 - Task and workflow engine.
 - SQLite storage.

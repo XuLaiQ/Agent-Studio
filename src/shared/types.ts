@@ -344,3 +344,173 @@ export interface PtyExitEvent {
   agentId: string
   exitCode: number
 }
+
+// ---- Agent Bus ----
+
+/** A message forwarded from one agent to another (or broadcast within a project). */
+export interface BusSendInput {
+  projectId: string
+  fromAgentId: string
+  /** Target agent id, or null when broadcasting to every other agent in the project. */
+  toAgentId: string | null
+  text: string
+  /** Press Enter in the target after injecting the text. */
+  submit: boolean
+}
+
+export interface BusSkipped {
+  agentId: string
+  reason: 'not-running' | 'not-found' | 'self'
+}
+
+export interface BusDeliveryResult {
+  delivered: string[]
+  skipped: BusSkipped[]
+}
+
+/** Delivery receipt echoed back to the sender's renderer. */
+export interface BusMessageEvent {
+  projectId: string
+  fromAgentId: string
+  fromAgentName: string
+  toAgentId: string
+  toAgentName: string
+  text: string
+  timestamp: number
+}
+
+// ---- Task engine (workflows) ----
+
+/** One step in a workflow: an instruction handed to a specific agent. */
+export interface WorkflowStep {
+  id: string
+  agentId: string
+  prompt: string
+}
+
+/** A named, ordered chain of steps that collaborate within a project. */
+export interface Workflow {
+  id: string
+  projectId: string
+  name: string
+  steps: WorkflowStep[]
+  createTime: number
+}
+
+export interface CreateWorkflowInput {
+  projectId: string
+  name: string
+  steps: { agentId: string; prompt: string }[]
+}
+
+export interface UpdateWorkflowInput {
+  id: string
+  name: string
+  steps: { agentId: string; prompt: string }[]
+}
+
+export type StepRunStatus = 'pending' | 'running' | 'done' | 'error' | 'skipped'
+export type WorkflowRunStatus = 'running' | 'done' | 'error' | 'stopped'
+
+export interface StartWorkflowInput {
+  workflowId: string
+  /** Output silence (ms) that marks a step complete. Defaults to 8000. */
+  idleMs?: number
+}
+
+export interface StepRunState {
+  stepId: string
+  agentId: string
+  status: StepRunStatus
+}
+
+/**
+ * A full snapshot of a run, pushed to the renderer on every state change so the
+ * UI can render directly without tracking deltas.
+ */
+export interface TaskRunEvent {
+  runId: string
+  workflowId: string
+  projectId: string
+  status: WorkflowRunStatus
+  currentStepIndex: number
+  steps: StepRunState[]
+  /** Optional message, e.g. an error like "agent not running". */
+  message?: string
+  timestamp: number
+}
+
+// ---- Orchestrator (master agent → dynamic sub-agents) ----
+
+/** Project-relative path where the master agent writes its plan. */
+export const PLAN_FILE = '.agent-studio/orchestration-plan.json'
+
+/** One sub-agent the master agent proposes: a role + task + dependencies. */
+export interface PlanNode {
+  /** Unique id within the plan, referenced by other nodes' dependsOn. */
+  key: string
+  /** Role name, used as the sub-agent's display name. */
+  role: string
+  /** CLI assigned to this role. */
+  type: AgentType
+  /** The instruction handed to this sub-agent. */
+  task: string
+  /** Keys of nodes that must finish before this one starts (forms a DAG). */
+  dependsOn: string[]
+}
+
+export interface OrchestrationPlan {
+  goal: string
+  agents: PlanNode[]
+}
+
+export type OrchNodeStatus = 'pending' | 'blocked' | 'running' | 'done' | 'error'
+export type OrchestratorRunStatus = 'running' | 'done' | 'error' | 'stopped'
+
+/** A plan node bound to the real agent id the renderer created for it. */
+export interface OrchestratorRunNode {
+  key: string
+  agentId: string
+  task: string
+  dependsOn: string[]
+}
+
+export interface OrchestratorRunInput {
+  projectId: string
+  /** Output silence (ms) that marks a node complete. Defaults to 8000. */
+  idleMs?: number
+  nodes: OrchestratorRunNode[]
+}
+
+export interface OrchestratorNodeState {
+  key: string
+  agentId: string
+  status: OrchNodeStatus
+}
+
+export interface OrchestratorEvent {
+  runId: string
+  projectId: string
+  status: OrchestratorRunStatus
+  nodes: OrchestratorNodeState[]
+  message?: string
+  timestamp: number
+}
+
+/**
+ * The prompt handed to the master agent. It must produce an OrchestrationPlan
+ * and write it (only the JSON) to PLAN_FILE so the app can read it back.
+ */
+export function buildPlannerPrompt(goal: string): string {
+  // Single line on purpose: embedded newlines would submit early in a CLI TUI.
+  return (
+    `你是一个软件项目的总负责人（主代理）。目标：「${goal}」。` +
+    `请把它拆解成完成所需的多个角色（子代理），每个角色一个独立任务，并标注彼此依赖关系，` +
+    `然后直接在当前项目目录创建文件 ${PLAN_FILE}（目录不存在就先创建），文件内容是一个 JSON 对象，不要输出额外解释。` +
+    `JSON 结构为 {"goal": string, "agents": [{"key": string, "role": string, "type": "claude"|"codex"|"gemini"|"reasonix", "task": string, "dependsOn": string[]}]}。` +
+    `约束：key 在计划内唯一；dependsOn 引用其它节点的 key 构成有向无环图（无依赖填空数组）；` +
+    `type 按角色选合适的 CLI（写代码类用 codex，需求/架构/文档/审查类用 claude）；` +
+    `task 要具体可独立执行，并说明该角色应把产出写到项目里的哪些文件以便协作；` +
+    `角色数量通常 4~8 个，覆盖从需求到落地的关键环节。完成后只需写好 ${PLAN_FILE} 即可。`
+  )
+}

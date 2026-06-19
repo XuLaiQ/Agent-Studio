@@ -6,7 +6,31 @@ import { AGENT_COMMANDS, buildAgentArgs, type PtyStartInput } from '../shared/ty
 interface Session {
   proc: pty.IPty
   agentId: string
+  /** Epoch ms of the most recent output chunk — used for idle detection. */
+  lastDataAt: number
+  /** When true, output chunks are buffered for the task engine to read. */
+  capturing: boolean
+  captureChunks: string[]
 }
+
+/** Strip ANSI escape / control sequences so captured output reads cleanly. */
+// eslint-disable-next-line no-control-regex
+const CSI_PATTERN = /\x1b\[[0-9;?]*[ -/]*[@-~]/g
+// eslint-disable-next-line no-control-regex
+const OSC_PATTERN = /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g
+// eslint-disable-next-line no-control-regex
+const OTHER_ESC = /\x1b[@-Z\\-_]/g
+
+function stripAnsi(text: string): string {
+  return text
+    .replace(OSC_PATTERN, '')
+    .replace(CSI_PATTERN, '')
+    .replace(OTHER_ESC, '')
+    .replace(/\r/g, '')
+}
+
+/** Cap on buffered capture characters to avoid unbounded memory growth. */
+const CAPTURE_LIMIT = 100_000
 
 /**
  * Owns every live PTY. Each agent gets one PTY running its CLI in the
@@ -49,10 +73,26 @@ class PtyManager {
       return
     }
 
-    this.sessions.set(input.agentId, { proc, agentId: input.agentId })
+    const session: Session = {
+      proc,
+      agentId: input.agentId,
+      lastDataAt: Date.now(),
+      capturing: false,
+      captureChunks: []
+    }
+    this.sessions.set(input.agentId, session)
     sender.send('agent:status', { agentId: input.agentId, status: 'running' })
 
     proc.onData((data) => {
+      session.lastDataAt = Date.now()
+      if (session.capturing) {
+        session.captureChunks.push(data)
+        // Keep only the most recent chunks once the buffer grows too large.
+        let total = session.captureChunks.reduce((n, c) => n + c.length, 0)
+        while (total > CAPTURE_LIMIT && session.captureChunks.length > 1) {
+          total -= session.captureChunks.shift()!.length
+        }
+      }
       sender.send('pty:data', { agentId: input.agentId, data })
     })
 
@@ -68,6 +108,42 @@ class PtyManager {
 
   write(agentId: string, data: string): void {
     this.sessions.get(agentId)?.proc.write(data)
+  }
+
+  /**
+   * Write `data` only after the agent's terminal has produced some output and
+   * then gone quiet for `idleMs` — i.e. its CLI has finished booting and is
+   * ready for input. Falls back to writing anyway after `timeoutMs`. Resolves
+   * false if the session never existed.
+   */
+  sendWhenIdle(
+    agentId: string,
+    data: string,
+    idleMs = 2500,
+    timeoutMs = 30000
+  ): Promise<boolean> {
+    return new Promise((resolve) => {
+      const session = this.sessions.get(agentId)
+      if (!session) return resolve(false)
+
+      const startedAt = Date.now()
+      const baseline = session.lastDataAt
+      const timer = setInterval(() => {
+        const s = this.sessions.get(agentId)
+        if (!s) {
+          clearInterval(timer)
+          return resolve(false)
+        }
+        const sawOutput = s.lastDataAt > baseline
+        const idle = Date.now() - s.lastDataAt >= idleMs
+        const timedOut = Date.now() - startedAt >= timeoutMs
+        if ((sawOutput && idle) || timedOut) {
+          clearInterval(timer)
+          s.proc.write(data)
+          resolve(true)
+        }
+      }, 300)
+    })
   }
 
   resize(agentId: string, cols: number, rows: number): void {
@@ -92,6 +168,37 @@ class PtyManager {
 
   isRunning(agentId: string): boolean {
     return this.sessions.has(agentId)
+  }
+
+  // ---- Output capture (used by the task engine for step hand-off) ----
+
+  /** Start buffering this agent's output from now on. */
+  beginCapture(agentId: string): void {
+    const session = this.sessions.get(agentId)
+    if (!session) return
+    session.capturing = true
+    session.captureChunks = []
+    session.lastDataAt = Date.now()
+  }
+
+  /** Return the captured output so far, stripped of ANSI sequences. */
+  readCapture(agentId: string): string {
+    const session = this.sessions.get(agentId)
+    if (!session) return ''
+    return stripAnsi(session.captureChunks.join('')).trim()
+  }
+
+  /** Stop buffering and drop the buffer. */
+  endCapture(agentId: string): void {
+    const session = this.sessions.get(agentId)
+    if (!session) return
+    session.capturing = false
+    session.captureChunks = []
+  }
+
+  /** Epoch ms of this agent's most recent output, or undefined if not running. */
+  lastDataAt(agentId: string): number | undefined {
+    return this.sessions.get(agentId)?.lastDataAt
   }
 
   killAll(): void {

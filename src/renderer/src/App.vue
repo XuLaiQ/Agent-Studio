@@ -4,6 +4,8 @@ import { useStudioStore } from './stores/studio'
 import ProjectSidebar from './components/ProjectSidebar.vue'
 import FileExplorer from './components/FileExplorer.vue'
 import VersionControlPanel from './components/VersionControlPanel.vue'
+import WorkflowPanel from './components/WorkflowPanel.vue'
+import OrchestratorPanel from './components/OrchestratorPanel.vue'
 import AgentWorkspace from './components/AgentWorkspace.vue'
 import FilePreview from './components/FilePreview.vue'
 import FileDiffView from './components/FileDiffView.vue'
@@ -22,7 +24,7 @@ const leftWidth = ref(Number(localStorage.getItem('agent-studio.leftWidth')) || 
 const selectedPreviewFile = ref<FileNode | null>(null)
 const selectedDiff = ref<VersionDiffSelection | null>(null)
 const activeWorkspace = ref<'agents' | 'preview'>('agents')
-const sidebarView = ref<'explorer' | 'sourceControl'>('explorer')
+const sidebarView = ref<'explorer' | 'sourceControl' | 'workflow' | 'orchestrator'>('explorer')
 let resizing = false
 
 function clampLeftWidth(width: number): number {
@@ -169,6 +171,47 @@ watch(
               />
             </svg>
           </button>
+          <button
+            type="button"
+            class="activity-item"
+            :class="{ active: sidebarView === 'workflow' }"
+            :title="t('workflow.title')"
+            @click="sidebarView = 'workflow'"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="4" width="7" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.6" />
+              <rect x="14" y="15" width="7" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.6" />
+              <path
+                d="M6.5 9v3.5h11V15"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.6"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="activity-item"
+            :class="{ active: sidebarView === 'orchestrator' }"
+            :title="t('orchestrator.title')"
+            @click="sidebarView = 'orchestrator'"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="5" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6" />
+              <circle cx="5.5" cy="18" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6" />
+              <circle cx="12" cy="18" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6" />
+              <circle cx="18.5" cy="18" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6" />
+              <path
+                d="M12 7.2v4.3m0 0L5.5 15.8M12 11.5v4.3m0-4.3 6.5 4.3"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-width="1.5"
+              />
+            </svg>
+          </button>
         </nav>
 
         <aside class="left" :style="{ width: `${leftWidth}px` }">
@@ -181,7 +224,13 @@ watch(
               @entry-deleted="handleDeletedEntry"
             />
           </template>
-          <VersionControlPanel v-else class="source-control-sidebar" @open-diff="openDiff" />
+          <VersionControlPanel
+            v-else-if="sidebarView === 'sourceControl'"
+            class="source-control-sidebar"
+            @open-diff="openDiff"
+          />
+          <WorkflowPanel v-else-if="sidebarView === 'workflow'" class="source-control-sidebar" />
+          <OrchestratorPanel v-else class="source-control-sidebar" />
         </aside>
         <div
           class="splitter"

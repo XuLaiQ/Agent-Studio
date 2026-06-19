@@ -6,7 +6,10 @@ import type {
   Agent,
   CreateAgentInput,
   CreateVersionConnectionInput,
-  VersionConnection
+  VersionConnection,
+  Workflow,
+  CreateWorkflowInput,
+  UpdateWorkflowInput
 } from '../shared/types'
 import { AGENT_COMMANDS } from '../shared/types'
 import { randomUUID } from 'crypto'
@@ -14,6 +17,7 @@ import { randomUUID } from 'crypto'
 interface StoreData {
   projects: Project[]
   versionConnections: VersionConnection[]
+  workflows: Workflow[]
 }
 
 /**
@@ -23,7 +27,7 @@ interface StoreData {
  */
 class Store {
   private file: string
-  private data: StoreData = { projects: [], versionConnections: [] }
+  private data: StoreData = { projects: [], versionConnections: [], workflows: [] }
 
   constructor() {
     const dir = app.getPath('userData')
@@ -39,10 +43,11 @@ class Store {
       }
     } catch (err) {
       console.error('[store] failed to load, starting fresh:', err)
-      this.data = { projects: [], versionConnections: [] }
+      this.data = { projects: [], versionConnections: [], workflows: [] }
     }
     if (!Array.isArray(this.data.projects)) this.data.projects = []
     if (!Array.isArray(this.data.versionConnections)) this.data.versionConnections = []
+    if (!Array.isArray(this.data.workflows)) this.data.workflows = []
   }
 
   private persist(): void {
@@ -104,6 +109,14 @@ class Store {
     this.persist()
   }
 
+  getAgent(projectId: string, agentId: string): Agent | undefined {
+    return this.findProject(projectId)?.agents.find((a) => a.id === agentId)
+  }
+
+  getProjectAgents(projectId: string): Agent[] {
+    return this.findProject(projectId)?.agents ?? []
+  }
+
   getVersionConnections(): VersionConnection[] {
     return this.data.versionConnections
   }
@@ -123,6 +136,51 @@ class Store {
 
   removeVersionConnection(id: string): void {
     this.data.versionConnections = this.data.versionConnections.filter((c) => c.id !== id)
+    this.persist()
+  }
+
+  getWorkflows(projectId?: string): Workflow[] {
+    return projectId
+      ? this.data.workflows.filter((w) => w.projectId === projectId)
+      : this.data.workflows
+  }
+
+  getWorkflow(id: string): Workflow | undefined {
+    return this.data.workflows.find((w) => w.id === id)
+  }
+
+  addWorkflow(input: CreateWorkflowInput): Workflow {
+    const workflow: Workflow = {
+      id: randomUUID(),
+      projectId: input.projectId,
+      name: input.name.trim(),
+      steps: input.steps.map((s) => ({
+        id: randomUUID(),
+        agentId: s.agentId,
+        prompt: s.prompt
+      })),
+      createTime: Date.now()
+    }
+    this.data.workflows.push(workflow)
+    this.persist()
+    return workflow
+  }
+
+  updateWorkflow(input: UpdateWorkflowInput): Workflow | undefined {
+    const workflow = this.data.workflows.find((w) => w.id === input.id)
+    if (!workflow) return undefined
+    workflow.name = input.name.trim()
+    workflow.steps = input.steps.map((s) => ({
+      id: randomUUID(),
+      agentId: s.agentId,
+      prompt: s.prompt
+    }))
+    this.persist()
+    return workflow
+  }
+
+  removeWorkflow(id: string): void {
+    this.data.workflows = this.data.workflows.filter((w) => w.id !== id)
     this.persist()
   }
 }

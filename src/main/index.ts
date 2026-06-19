@@ -3,6 +3,13 @@ import { join } from 'path'
 import { registerIpc } from './ipc'
 import { ptyManager } from './ptyManager'
 
+// Chromium logs noisy "Unable to move the cache" / "Gpu Cache Creation failed"
+// errors on Windows when its default cache dir isn't writable (stale lock from a
+// previous run, AV, or OneDrive-synced AppData). Point the disk cache at a
+// dedicated writable folder and skip the GPU shader disk cache to silence them.
+app.commandLine.appendSwitch('disk-cache-dir', join(app.getPath('userData'), 'Cache'))
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1400,

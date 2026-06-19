@@ -13,6 +13,17 @@ import type {
   FileWriteInput,
   CreateAgentInput,
   CreateVersionConnectionInput,
+  BusSendInput,
+  BusDeliveryResult,
+  BusMessageEvent,
+  Workflow,
+  CreateWorkflowInput,
+  UpdateWorkflowInput,
+  StartWorkflowInput,
+  TaskRunEvent,
+  OrchestratorRunInput,
+  OrchestratorEvent,
+  OrchestrationPlan,
   PtyStartInput,
   PtyDataEvent,
   PtyExitEvent,
@@ -103,6 +114,8 @@ const api = {
   // PTY control
   startPty: (input: PtyStartInput): void => ipcRenderer.send('pty:start', input),
   writePty: (agentId: string, data: string): void => ipcRenderer.send('pty:write', agentId, data),
+  sendPtyWhenIdle: (agentId: string, data: string): Promise<boolean> =>
+    ipcRenderer.invoke('pty:sendWhenIdle', agentId, data),
   resizePty: (agentId: string, cols: number, rows: number): void =>
     ipcRenderer.send('pty:resize', agentId, cols, rows),
   killPty: (agentId: string): void => ipcRenderer.send('pty:kill', agentId),
@@ -111,6 +124,49 @@ const api = {
   // Conversation history
   listSessions: (input: SessionListInput): Promise<SessionSummary[]> =>
     ipcRenderer.invoke('sessions:list', input),
+
+  // Agent Bus
+  sendToAgent: (input: BusSendInput): Promise<BusDeliveryResult> =>
+    ipcRenderer.invoke('bus:send', input),
+  onBusMessage: (cb: (e: BusMessageEvent) => void): (() => void) => {
+    const handler = (_e: IpcRendererEvent, payload: BusMessageEvent): void => cb(payload)
+    ipcRenderer.on('bus:message', handler)
+    return () => ipcRenderer.removeListener('bus:message', handler)
+  },
+
+  // Workflows (task collaboration)
+  listWorkflows: (projectId: string): Promise<Workflow[]> =>
+    ipcRenderer.invoke('workflow:list', projectId),
+  createWorkflow: (input: CreateWorkflowInput): Promise<Workflow> =>
+    ipcRenderer.invoke('workflow:create', input),
+  updateWorkflow: (input: UpdateWorkflowInput): Promise<Workflow | null> =>
+    ipcRenderer.invoke('workflow:update', input),
+  removeWorkflow: (id: string, projectId: string): Promise<Workflow[]> =>
+    ipcRenderer.invoke('workflow:remove', id, projectId),
+  startTask: (input: StartWorkflowInput): Promise<string | null> =>
+    ipcRenderer.invoke('task:start', input),
+  advanceTask: (runId: string): void => ipcRenderer.send('task:advance', runId),
+  retryTask: (runId: string): void => ipcRenderer.send('task:retry', runId),
+  stopTask: (runId: string): void => ipcRenderer.send('task:stop', runId),
+  onTaskEvent: (cb: (e: TaskRunEvent) => void): (() => void) => {
+    const handler = (_e: IpcRendererEvent, payload: TaskRunEvent): void => cb(payload)
+    ipcRenderer.on('task:event', handler)
+    return () => ipcRenderer.removeListener('task:event', handler)
+  },
+
+  // Orchestrator (master agent → dynamic sub-agents)
+  runOrchestrator: (input: OrchestratorRunInput): Promise<string> =>
+    ipcRenderer.invoke('orchestrator:run', input),
+  readOrchestratorPlan: (projectId: string): Promise<OrchestrationPlan | null> =>
+    ipcRenderer.invoke('orchestrator:readPlan', projectId),
+  stopOrchestrator: (runId: string): void => ipcRenderer.send('orchestrator:stop', runId),
+  retryOrchestratorNode: (runId: string, key: string): void =>
+    ipcRenderer.send('orchestrator:retry', runId, key),
+  onOrchestratorEvent: (cb: (e: OrchestratorEvent) => void): (() => void) => {
+    const handler = (_e: IpcRendererEvent, payload: OrchestratorEvent): void => cb(payload)
+    ipcRenderer.on('orchestrator:event', handler)
+    return () => ipcRenderer.removeListener('orchestrator:event', handler)
+  },
 
   // PTY / status events. Each returns an unsubscribe function.
   onPtyData: (cb: (e: PtyDataEvent) => void): (() => void) => {

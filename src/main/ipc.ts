@@ -1,8 +1,11 @@
 import { ipcMain, dialog, BrowserWindow, shell, webContents } from 'electron'
-import { watch, type FSWatcher } from 'fs'
-import { basename, resolve } from 'path'
+import { watch, existsSync, readFileSync, type FSWatcher } from 'fs'
+import { basename, resolve, join } from 'path'
 import { store } from './store'
 import { ptyManager } from './ptyManager'
+import { agentBus } from './agentBus'
+import { taskEngine } from './taskEngine'
+import { orchestrator } from './orchestrator'
 import { listSessions } from './sessionHistory'
 import {
   createFileSystemEntry,
@@ -34,6 +37,12 @@ import type {
   FileWatchResult,
   FileWriteInput,
   CreateVersionConnectionInput,
+  BusSendInput,
+  CreateWorkflowInput,
+  UpdateWorkflowInput,
+  StartWorkflowInput,
+  OrchestratorRunInput,
+  OrchestrationPlan,
   PtyStartInput,
   SessionListInput,
   VersionBranchInput,
@@ -43,6 +52,26 @@ import type {
   VersionFileInput,
   VersionProjectInput
 } from '../shared/types'
+import { PLAN_FILE } from '../shared/types'
+
+/** Read and parse the orchestration plan file the master agent writes, or null. */
+function readOrchestrationPlan(projectId: string): OrchestrationPlan | null {
+  const project = store.getProjects().find((p) => p.id === projectId)
+  if (!project) return null
+  const file = join(project.path, PLAN_FILE)
+  if (!existsSync(file)) return null
+  try {
+    const raw = readFileSync(file, 'utf-8')
+    const start = raw.indexOf('{')
+    const end = raw.lastIndexOf('}')
+    if (start < 0 || end <= start) return null
+    const data = JSON.parse(raw.slice(start, end + 1))
+    if (!Array.isArray(data.agents) || !data.agents.length) return null
+    return data as OrchestrationPlan
+  } catch {
+    return null
+  }
+}
 
 const fileWatchers = new Map<
   string,
@@ -193,6 +222,10 @@ export function registerIpc(): void {
     ptyManager.write(agentId, data)
   })
 
+  ipcMain.handle('pty:sendWhenIdle', (_e, agentId: string, data: string) =>
+    ptyManager.sendWhenIdle(agentId, data)
+  )
+
   ipcMain.on('pty:resize', (_e, agentId: string, cols: number, rows: number) => {
     ptyManager.resize(agentId, cols, rows)
   })
@@ -206,5 +239,42 @@ export function registerIpc(): void {
   // ---- Conversation history ----
   ipcMain.handle('sessions:list', (_e, input: SessionListInput) =>
     listSessions(input.type, input.cwd)
+  )
+
+  // ---- Agent Bus ----
+  ipcMain.handle('bus:send', (event, input: BusSendInput) =>
+    agentBus.forward(input, event.sender)
+  )
+
+  // ---- Workflows (task collaboration) ----
+  ipcMain.handle('workflow:list', (_e, projectId: string) => store.getWorkflows(projectId))
+  ipcMain.handle('workflow:create', (_e, input: CreateWorkflowInput) => store.addWorkflow(input))
+  ipcMain.handle('workflow:update', (_e, input: UpdateWorkflowInput) =>
+    store.updateWorkflow(input)
+  )
+  ipcMain.handle('workflow:remove', (_e, id: string, projectId: string) => {
+    store.removeWorkflow(id)
+    return store.getWorkflows(projectId)
+  })
+
+  ipcMain.handle('task:start', (event, input: StartWorkflowInput) => {
+    const workflow = store.getWorkflow(input.workflowId)
+    if (!workflow) return null
+    return taskEngine.start(workflow, workflow.projectId, input.idleMs ?? 0, event.sender)
+  })
+  ipcMain.on('task:advance', (_e, runId: string) => taskEngine.advance(runId))
+  ipcMain.on('task:retry', (_e, runId: string) => taskEngine.retry(runId))
+  ipcMain.on('task:stop', (_e, runId: string) => taskEngine.stop(runId))
+
+  // ---- Orchestrator (master agent → dynamic sub-agents) ----
+  ipcMain.handle('orchestrator:run', (event, input: OrchestratorRunInput) =>
+    orchestrator.start(input, event.sender)
+  )
+  ipcMain.on('orchestrator:stop', (_e, runId: string) => orchestrator.stop(runId))
+  ipcMain.on('orchestrator:retry', (_e, runId: string, key: string) =>
+    orchestrator.retry(runId, key)
+  )
+  ipcMain.handle('orchestrator:readPlan', (_e, projectId: string) =>
+    readOrchestrationPlan(projectId)
   )
 }

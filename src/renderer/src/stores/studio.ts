@@ -57,8 +57,8 @@ export const useStudioStore = defineStore('studio', () => {
     activeAgentId.value = proj?.agents[0]?.id ?? null
   }
 
-  async function createAgent(type: AgentType, name?: string): Promise<void> {
-    if (!activeProjectId.value) return
+  async function createAgent(type: AgentType, name?: string): Promise<Agent | null> {
+    if (!activeProjectId.value) return null
     const agent = await window.studio.createAgent({
       projectId: activeProjectId.value,
       type,
@@ -66,6 +66,7 @@ export const useStudioStore = defineStore('studio', () => {
     })
     activeProject.value?.agents.push(agent)
     activeAgentId.value = agent.id
+    return agent
   }
 
   async function removeAgent(agent: Agent): Promise<void> {
