@@ -2,21 +2,49 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api'
 import 'monaco-editor/esm/vs/basic-languages/bat/bat.contribution'
+import 'monaco-editor/esm/vs/basic-languages/bicep/bicep.contribution'
+import 'monaco-editor/esm/vs/basic-languages/clojure/clojure.contribution'
+import 'monaco-editor/esm/vs/basic-languages/coffee/coffee.contribution'
 import 'monaco-editor/esm/vs/basic-languages/cpp/cpp.contribution'
 import 'monaco-editor/esm/vs/basic-languages/csharp/csharp.contribution'
+import 'monaco-editor/esm/vs/basic-languages/css/css.contribution'
+import 'monaco-editor/esm/vs/basic-languages/dart/dart.contribution'
 import 'monaco-editor/esm/vs/basic-languages/dockerfile/dockerfile.contribution'
+import 'monaco-editor/esm/vs/basic-languages/elixir/elixir.contribution'
+import 'monaco-editor/esm/vs/basic-languages/fsharp/fsharp.contribution'
 import 'monaco-editor/esm/vs/basic-languages/go/go.contribution'
+import 'monaco-editor/esm/vs/basic-languages/graphql/graphql.contribution'
+import 'monaco-editor/esm/vs/basic-languages/handlebars/handlebars.contribution'
+import 'monaco-editor/esm/vs/basic-languages/hcl/hcl.contribution'
+import 'monaco-editor/esm/vs/basic-languages/html/html.contribution'
 import 'monaco-editor/esm/vs/basic-languages/ini/ini.contribution'
 import 'monaco-editor/esm/vs/basic-languages/java/java.contribution'
+import 'monaco-editor/esm/vs/basic-languages/javascript/javascript.contribution'
+import 'monaco-editor/esm/vs/basic-languages/kotlin/kotlin.contribution'
+import 'monaco-editor/esm/vs/basic-languages/less/less.contribution'
 import 'monaco-editor/esm/vs/basic-languages/lua/lua.contribution'
 import 'monaco-editor/esm/vs/basic-languages/markdown/markdown.contribution'
+import 'monaco-editor/esm/vs/basic-languages/mdx/mdx.contribution'
+import 'monaco-editor/esm/vs/basic-languages/objective-c/objective-c.contribution'
+import 'monaco-editor/esm/vs/basic-languages/perl/perl.contribution'
 import 'monaco-editor/esm/vs/basic-languages/php/php.contribution'
 import 'monaco-editor/esm/vs/basic-languages/powershell/powershell.contribution'
+import 'monaco-editor/esm/vs/basic-languages/protobuf/protobuf.contribution'
+import 'monaco-editor/esm/vs/basic-languages/pug/pug.contribution'
 import 'monaco-editor/esm/vs/basic-languages/python/python.contribution'
+import 'monaco-editor/esm/vs/basic-languages/r/r.contribution'
 import 'monaco-editor/esm/vs/basic-languages/ruby/ruby.contribution'
 import 'monaco-editor/esm/vs/basic-languages/rust/rust.contribution'
+import 'monaco-editor/esm/vs/basic-languages/scala/scala.contribution'
+import 'monaco-editor/esm/vs/basic-languages/scss/scss.contribution'
 import 'monaco-editor/esm/vs/basic-languages/shell/shell.contribution'
+import 'monaco-editor/esm/vs/basic-languages/solidity/solidity.contribution'
 import 'monaco-editor/esm/vs/basic-languages/sql/sql.contribution'
+import 'monaco-editor/esm/vs/basic-languages/swift/swift.contribution'
+import 'monaco-editor/esm/vs/basic-languages/typescript/typescript.contribution'
+import 'monaco-editor/esm/vs/basic-languages/twig/twig.contribution'
+import 'monaco-editor/esm/vs/basic-languages/vb/vb.contribution'
+import 'monaco-editor/esm/vs/basic-languages/wgsl/wgsl.contribution'
 import 'monaco-editor/esm/vs/basic-languages/xml/xml.contribution'
 import 'monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution'
 import 'monaco-editor/esm/vs/language/css/monaco.contribution'
@@ -50,45 +78,121 @@ let internalUpdate = false
 const language = computed(() => languageForFile(props.fileName ?? ''))
 
 const languageByExtension: Record<string, string> = {
+  '.babelrc': 'json',
   '.bat': 'bat',
+  '.bicep': 'bicep',
   '.c': 'c',
+  '.cc': 'cpp',
+  '.cjs': 'javascript',
+  '.clj': 'clojure',
+  '.cljs': 'clojure',
+  '.cljc': 'clojure',
   '.cmd': 'bat',
+  '.coffee': 'coffeescript',
   '.conf': 'ini',
   '.cpp': 'cpp',
   '.cs': 'csharp',
   '.css': 'css',
   '.csv': 'plaintext',
+  '.cts': 'typescript',
+  '.cxx': 'cpp',
+  '.dart': 'dart',
   '.dockerfile': 'dockerfile',
+  '.edn': 'clojure',
+  '.env': 'ini',
+  '.ex': 'elixir',
+  '.exs': 'elixir',
+  '.fs': 'fsharp',
+  '.fsi': 'fsharp',
+  '.fsx': 'fsharp',
   '.go': 'go',
+  '.gql': 'graphql',
+  '.graphql': 'graphql',
+  '.hbs': 'handlebars',
   '.h': 'cpp',
+  '.hh': 'cpp',
+  '.hcl': 'hcl',
+  '.hpp': 'cpp',
   '.html': 'html',
+  '.htm': 'html',
+  '.hxx': 'cpp',
   '.ini': 'ini',
   '.java': 'java',
   '.js': 'javascript',
   '.json': 'json',
+  '.jsonc': 'json',
   '.jsx': 'javascript',
+  '.kt': 'kotlin',
+  '.kts': 'kotlin',
   '.less': 'less',
   '.log': 'plaintext',
   '.lua': 'lua',
+  '.m': 'objective-c',
   '.md': 'markdown',
+  '.mdx': 'mdx',
+  '.ml': 'fsharp',
+  '.mli': 'fsharp',
   '.mjs': 'javascript',
+  '.mts': 'typescript',
+  '.p8': 'perl',
+  '.pl': 'perl',
+  '.pm': 'perl',
   '.php': 'php',
+  '.proto': 'proto',
   '.ps1': 'powershell',
+  '.pug': 'pug',
+  '.pyw': 'python',
   '.py': 'python',
+  '.r': 'r',
+  '.rhistory': 'r',
+  '.rmd': 'r',
+  '.rprofile': 'r',
   '.rb': 'ruby',
   '.rs': 'rust',
+  '.sbt': 'scala',
+  '.scala': 'scala',
+  '.sc': 'scala',
   '.scss': 'scss',
   '.sh': 'shell',
+  '.sol': 'sol',
   '.sql': 'sql',
   '.svg': 'xml',
+  '.swift': 'swift',
+  '.tf': 'hcl',
+  '.tfvars': 'hcl',
   '.toml': 'ini',
   '.ts': 'typescript',
   '.tsx': 'typescript',
+  '.twig': 'twig',
   '.txt': 'plaintext',
+  '.vb': 'vb',
   '.vue': 'html',
+  '.wgsl': 'wgsl',
   '.xml': 'xml',
   '.yaml': 'yaml',
   '.yml': 'yaml'
+}
+
+const languageByFileName: Record<string, string> = {
+  '.babelrc': 'json',
+  '.dockerignore': 'plaintext',
+  '.editorconfig': 'ini',
+  '.env': 'ini',
+  '.eslintignore': 'plaintext',
+  '.eslintrc': 'json',
+  '.gitattributes': 'plaintext',
+  '.gitignore': 'plaintext',
+  '.npmrc': 'ini',
+  '.prettierrc': 'json',
+  'cmakelists.txt': 'plaintext',
+  dockerfile: 'dockerfile',
+  gemfile: 'ruby',
+  jenkinsfile: 'shell',
+  makefile: 'shell',
+  podfile: 'ruby',
+  procfile: 'shell',
+  rakefile: 'ruby',
+  vagrantfile: 'ruby'
 }
 
 function ensureMonacoEnvironment(): void {
@@ -147,8 +251,13 @@ function extensionOf(fileName: string): string {
   return dot === -1 ? '' : normalized.slice(dot)
 }
 
+function baseNameOf(fileName: string): string {
+  return fileName.replace(/\\/g, '/').split('/').pop()?.toLowerCase() ?? ''
+}
+
 function languageForFile(fileName: string): string {
-  return languageByExtension[extensionOf(fileName)] ?? 'plaintext'
+  const baseName = baseNameOf(fileName)
+  return languageByFileName[baseName] ?? languageByExtension[extensionOf(baseName)] ?? 'plaintext'
 }
 
 function createModel(): monaco.editor.ITextModel {
