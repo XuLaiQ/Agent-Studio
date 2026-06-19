@@ -154,6 +154,10 @@ const messages: Record<Locale, Dict> = {
 
     'terminal.restart': 'Restart CLI',
     'terminal.exited': '[process exited with code {code}]',
+    'terminal.model': 'Model',
+    'terminal.history': 'Conversation history',
+    'terminal.historyEmpty': 'No history',
+    'terminal.historyRefresh': 'Refresh',
 
     'common.cancel': 'Cancel'
   },
@@ -186,6 +190,10 @@ const messages: Record<Locale, Dict> = {
 
     'terminal.restart': '重启 CLI',
     'terminal.exited': '[进程已退出，代码 {code}]',
+    'terminal.model': '模型',
+    'terminal.history': '对话历史',
+    'terminal.historyEmpty': '暂无历史',
+    'terminal.historyRefresh': '刷新',
 
     'common.cancel': '取消'
   }

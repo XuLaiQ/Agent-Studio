@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { t } from '../i18n'
-import type { Agent } from '@shared/types'
+import { AGENT_MODELS, liveModelCommand, type Agent, type SessionSummary } from '@shared/types'
 
 const props = defineProps<{ agent: Agent; projectPath: string }>()
 
@@ -13,6 +13,62 @@ let fit: FitAddon | null = null
 let resizeObserver: ResizeObserver | null = null
 const cleanups: Array<() => void> = []
 let started = false
+
+// ---- Model switching + conversation history (component-local) ----
+const models = computed(() => AGENT_MODELS[props.agent.type] ?? [])
+const hasModelSwitch = computed(() => models.value.length > 1)
+const currentModel = ref('')
+const modelOpen = ref(false)
+const historyOpen = ref(false)
+const sessions = ref<SessionSummary[]>([])
+const historyLoading = ref(false)
+
+const currentModelLabel = computed(
+  () => models.value.find((m) => m.id === currentModel.value)?.label ?? models.value[0]?.label ?? ''
+)
+
+function selectModel(id: string): void {
+  modelOpen.value = false
+  if (id === currentModel.value) return
+  currentModel.value = id
+
+  // Switch a live session in place when the CLI supports it; otherwise the new
+  // model just applies on the next start/resume.
+  const command = liveModelCommand(props.agent.type, id)
+  if (command && started) {
+    window.studio.writePty(props.agent.id, `${command}\r`)
+  }
+}
+
+async function loadSessions(): Promise<void> {
+  historyLoading.value = true
+  try {
+    sessions.value = await window.studio.listSessions({
+      type: props.agent.type,
+      cwd: props.projectPath
+    })
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+function toggleHistory(): void {
+  historyOpen.value = !historyOpen.value
+  modelOpen.value = false
+  if (historyOpen.value) loadSessions()
+}
+
+function resumeSession(id: string): void {
+  historyOpen.value = false
+  term?.reset()
+  started = false
+  startSession({ resumeSessionId: id })
+}
+
+function closePopovers(): void {
+  modelOpen.value = false
+  historyOpen.value = false
+}
 
 function doFit(): void {
   if (!fit || !term || !host.value) return
@@ -25,7 +81,7 @@ function doFit(): void {
   }
 }
 
-function startSession(): void {
+function startSession(opts: { resumeSessionId?: string } = {}): void {
   if (started || !term) return
   started = true
   window.studio.startPty({
@@ -33,7 +89,9 @@ function startSession(): void {
     cwd: props.projectPath,
     type: props.agent.type,
     cols: term.cols || 80,
-    rows: term.rows || 24
+    rows: term.rows || 24,
+    model: currentModel.value || undefined,
+    resumeSessionId: opts.resumeSessionId
   })
 }
 
@@ -99,12 +157,15 @@ onMounted(() => {
   resizeObserver = new ResizeObserver(() => doFit())
   resizeObserver.observe(host.value)
 
+  document.addEventListener('click', closePopovers)
+
   startSession()
 })
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   cleanups.forEach((fn) => fn())
+  document.removeEventListener('click', closePopovers)
   window.studio.killPty(props.agent.id)
   term?.dispose()
   term = null
@@ -131,18 +192,93 @@ function copySelection(event: MouseEvent): void {
 <template>
   <div class="term-wrap">
     <div ref="host" class="term-host" @click="term?.focus()" @contextmenu="copySelection" />
-    <button class="restart" type="button" :title="t('terminal.restart')" @click="restart">
-      <svg viewBox="0 0 16 16" aria-hidden="true">
-        <path
-          d="M13 3.5v3H10M12.4 6.5A4.8 4.8 0 1 0 13 9"
-          fill="none"
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="1.4"
-        />
-      </svg>
-    </button>
+
+    <div class="term-toolbar" :class="{ open: modelOpen || historyOpen }" @click.stop>
+      <!-- Model switcher -->
+      <div v-if="hasModelSwitch" class="tool">
+        <button
+          class="tool-btn model-btn"
+          type="button"
+          :title="t('terminal.model')"
+          @click="(modelOpen = !modelOpen), (historyOpen = false)"
+        >
+          {{ currentModelLabel }}
+        </button>
+        <ul v-if="modelOpen" class="popover model-popover">
+          <li
+            v-for="m in models"
+            :key="m.id || 'default'"
+            :class="{ active: m.id === currentModel }"
+            @click="selectModel(m.id)"
+          >
+            {{ m.label }}
+          </li>
+        </ul>
+      </div>
+
+      <!-- Conversation history -->
+      <div class="tool">
+        <button
+          class="tool-btn"
+          type="button"
+          :title="t('terminal.history')"
+          @click="toggleHistory"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M8 4.5V8l2.5 1.5M8 2.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11Z"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.4"
+            />
+          </svg>
+        </button>
+        <div v-if="historyOpen" class="popover history-popover">
+          <div class="history-head">
+            <span>{{ t('terminal.history') }}</span>
+            <button
+              class="history-refresh"
+              type="button"
+              :title="t('terminal.historyRefresh')"
+              @click="loadSessions"
+            >
+              {{ t('terminal.historyRefresh') }}
+            </button>
+          </div>
+          <ul class="history-list">
+            <li v-if="historyLoading" class="history-empty">…</li>
+            <li v-else-if="!sessions.length" class="history-empty">
+              {{ t('terminal.historyEmpty') }}
+            </li>
+            <li
+              v-for="s in sessions"
+              v-else
+              :key="s.id"
+              class="history-item"
+              @click="resumeSession(s.id)"
+            >
+              {{ s.title }}
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Restart (rightmost) -->
+      <button class="tool-btn" type="button" :title="t('terminal.restart')" @click="restart">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path
+            d="M13 3.5v3H10M12.4 6.5A4.8 4.8 0 1 0 13 9"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.4"
+          />
+        </svg>
+      </button>
+    </div>
   </div>
 </template>
 
@@ -157,12 +293,27 @@ function copySelection(event: MouseEvent): void {
   width: 100%;
   height: 100%;
 }
-.restart {
+.term-toolbar {
   position: absolute;
   top: 8px;
   right: 12px;
-  width: 26px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.term-wrap:hover .term-toolbar,
+.term-toolbar.open {
+  opacity: 1;
+}
+.tool {
+  position: relative;
+}
+.tool-btn {
   height: 26px;
+  min-width: 26px;
+  padding: 0 6px;
   display: grid;
   place-items: center;
   border: 1px solid var(--border);
@@ -170,18 +321,104 @@ function copySelection(event: MouseEvent): void {
   background: rgba(22, 22, 31, 0.9);
   color: var(--text-dim);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.12s ease;
+  font-size: 11px;
+  line-height: 1;
 }
-.term-wrap:hover .restart {
-  opacity: 1;
+.tool-btn:hover {
+  color: var(--text);
+  border-color: var(--accent-hover);
 }
-.restart svg {
+.tool-btn svg {
   width: 15px;
   height: 15px;
 }
-.restart:hover {
+.model-btn {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Popovers */
+.popover {
+  position: absolute;
+  top: 30px;
+  right: 0;
+  z-index: 20;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(18, 18, 26, 0.98);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.model-popover {
+  min-width: 120px;
+}
+.model-popover li {
+  padding: 5px 8px;
+  border-radius: 2px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.model-popover li:hover {
+  background: rgba(157, 116, 255, 0.16);
   color: var(--text);
-  border-color: var(--accent-hover);
+}
+.model-popover li.active {
+  color: var(--text);
+  background: rgba(157, 116, 255, 0.24);
+}
+
+.history-popover {
+  width: 280px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+}
+.history-refresh {
+  border: none;
+  background: none;
+  color: var(--accent-hover);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+}
+.history-list {
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.history-item {
+  padding: 6px 8px;
+  border-radius: 2px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-item:hover {
+  background: rgba(157, 116, 255, 0.16);
+  color: var(--text);
+}
+.history-empty {
+  padding: 12px 8px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 12px;
 }
 </style>

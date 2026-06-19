@@ -16,6 +16,8 @@ import type {
   PtyStartInput,
   PtyDataEvent,
   PtyExitEvent,
+  SessionListInput,
+  SessionSummary,
   AgentStatus,
   ProjectVersionStatus,
   VersionConnection,
@@ -105,6 +107,10 @@ const api = {
     ipcRenderer.send('pty:resize', agentId, cols, rows),
   killPty: (agentId: string): void => ipcRenderer.send('pty:kill', agentId),
   isPtyRunning: (agentId: string): Promise<boolean> => ipcRenderer.invoke('pty:isRunning', agentId),
+
+  // Conversation history
+  listSessions: (input: SessionListInput): Promise<SessionSummary[]> =>
+    ipcRenderer.invoke('sessions:list', input),
 
   // PTY / status events. Each returns an unsubscribe function.
   onPtyData: (cb: (e: PtyDataEvent) => void): (() => void) => {

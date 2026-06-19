@@ -3,6 +3,7 @@ import { watch, type FSWatcher } from 'fs'
 import { basename, resolve } from 'path'
 import { store } from './store'
 import { ptyManager } from './ptyManager'
+import { listSessions } from './sessionHistory'
 import {
   createFileSystemEntry,
   deleteFileSystemEntry,
@@ -34,6 +35,7 @@ import type {
   FileWriteInput,
   CreateVersionConnectionInput,
   PtyStartInput,
+  SessionListInput,
   VersionBranchInput,
   VersionCommitInput,
   VersionCreateBranchInput,
@@ -200,4 +202,9 @@ export function registerIpc(): void {
   })
 
   ipcMain.handle('pty:isRunning', (_e, agentId: string) => ptyManager.isRunning(agentId))
+
+  // ---- Conversation history ----
+  ipcMain.handle('sessions:list', (_e, input: SessionListInput) =>
+    listSessions(input.type, input.cwd)
+  )
 }

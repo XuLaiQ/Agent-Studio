@@ -224,6 +224,97 @@ export const AGENT_COMMANDS: Record<AgentType, { command: string; args: string[]
   reasonix: { command: 'reasonix', args: [], label: 'Reasonix' }
 }
 
+/** A selectable model for an agent. An empty `id` means "use the CLI default". */
+export interface ModelOption {
+  id: string
+  label: string
+}
+
+/**
+ * Models offered in each agent's model switcher. Ids are the values passed to the
+ * CLI (`--model` for claude, `-m` for codex). Labels are proper nouns, so they are
+ * intentionally not run through i18n.
+ */
+export const AGENT_MODELS: Record<AgentType, ModelOption[]> = {
+  claude: [
+    { id: '', label: 'Default' },
+    { id: 'opus', label: 'Opus 4.8' },
+    { id: 'sonnet', label: 'Sonnet 4.6' },
+    { id: 'haiku', label: 'Haiku 4.5' },
+    { id: 'fable', label: 'Fable 5' }
+  ],
+  codex: [
+    { id: '', label: 'Default' },
+    { id: 'gpt-5-codex', label: 'GPT-5 Codex' },
+    { id: 'o3', label: 'o3' }
+  ],
+  gemini: [{ id: '', label: 'Default' }],
+  reasonix: [{ id: '', label: 'Default' }]
+}
+
+export interface AgentLaunchOptions {
+  /** Model id to launch with (CLI default when empty/undefined). */
+  model?: string
+  /** Resume an existing conversation by its session id. */
+  resumeSessionId?: string
+}
+
+/**
+ * Assembles the CLI arguments (after the base command) for launching an agent
+ * with an optional model and/or resumed conversation. Each CLI has its own flag
+ * shape, so this is the single place that knows them.
+ */
+export function buildAgentArgs(type: AgentType, opts: AgentLaunchOptions = {}): string[] {
+  const { model, resumeSessionId } = opts
+  switch (type) {
+    case 'claude':
+      return [
+        ...(resumeSessionId ? ['--resume', resumeSessionId] : []),
+        ...(model ? ['--model', model] : [])
+      ]
+    case 'codex':
+      // Resume is a subcommand: `codex resume <id>`.
+      return resumeSessionId
+        ? ['resume', resumeSessionId, ...(model ? ['-m', model] : [])]
+        : model
+          ? ['-m', model]
+          : []
+    case 'gemini':
+      return model ? ['-m', model] : []
+    case 'reasonix':
+    default:
+      return []
+  }
+}
+
+/**
+ * The slash command that switches the model of an already-running session
+ * without restarting it, or `null` if the CLI has no such command.
+ */
+export function liveModelCommand(type: AgentType, modelId: string): string | null {
+  if (!modelId) return null
+  switch (type) {
+    case 'claude':
+    case 'codex':
+      return `/model ${modelId}`
+    default:
+      return null
+  }
+}
+
+/** One past conversation surfaced in the terminal's history list. */
+export interface SessionSummary {
+  id: string
+  title: string
+  /** Epoch ms of the session's last activity (file mtime). */
+  updatedAt: number
+}
+
+export interface SessionListInput {
+  type: AgentType
+  cwd: string
+}
+
 // ---- IPC payload shapes ----
 
 export interface CreateAgentInput {
@@ -238,6 +329,10 @@ export interface PtyStartInput {
   type: AgentType
   cols: number
   rows: number
+  /** Launch the CLI with this model (CLI default when empty/undefined). */
+  model?: string
+  /** Resume an existing conversation by its session id. */
+  resumeSessionId?: string
 }
 
 export interface PtyDataEvent {

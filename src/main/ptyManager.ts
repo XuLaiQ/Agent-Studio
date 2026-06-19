@@ -1,7 +1,7 @@
 import * as pty from '@lydell/node-pty'
 import { platform } from 'os'
 import type { WebContents } from 'electron'
-import { AGENT_COMMANDS, type PtyStartInput } from '../shared/types'
+import { AGENT_COMMANDS, buildAgentArgs, type PtyStartInput } from '../shared/types'
 
 interface Session {
   proc: pty.IPty
@@ -19,7 +19,11 @@ class PtyManager {
     // Restarting an existing agent: kill the old session first.
     this.kill(input.agentId)
 
-    const { command, args } = AGENT_COMMANDS[input.type]
+    const { command } = AGENT_COMMANDS[input.type]
+    const args = buildAgentArgs(input.type, {
+      model: input.model,
+      resumeSessionId: input.resumeSessionId
+    })
     const isWin = platform() === 'win32'
     // On Windows the bare command often needs the shell to resolve PATH/.cmd
     // shims that npm-installed CLIs use, so launch through the shell.
