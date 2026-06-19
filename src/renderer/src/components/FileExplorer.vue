@@ -10,7 +10,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (event: 'open-preview', node: FileNode): void
+  (event: 'preview-file', node: FileNode): void
+  (event: 'open-in-tab', node: FileNode): void
   (event: 'entry-deleted', node: FileNode): void
 }>()
 
@@ -88,9 +89,21 @@ function isActiveProjectChange(event: FileChangeEvent): boolean {
   return normalizePath(event.projectPath).toLowerCase() === normalizePath(projectPath).toLowerCase()
 }
 
+let lastClickTime = 0
+let lastClickNode: FileNode | null = null
+
 async function toggle(node: FileNode): Promise<void> {
+  const now = Date.now()
+  const isDoubleClick = lastClickNode === node && now - lastClickTime < 300
+
   if (!node.isDir) {
-    emit('open-preview', node)
+    if (isDoubleClick) {
+      emit('open-in-tab', node)
+    } else {
+      emit('preview-file', node)
+    }
+    lastClickTime = now
+    lastClickNode = node
     return
   }
 
@@ -166,7 +179,7 @@ function openPreviewFromMenu(): void {
   if (!node || node.isDir) return
 
   closeContextMenu()
-  emit('open-preview', node)
+  emit('open-in-tab', node)
 }
 
 function errorText(err: unknown): string {
@@ -279,7 +292,6 @@ onBeforeUnmount(() => {
         :selected-path="props.selectedPath"
         @toggle="toggle"
         @open-menu="openContextMenu"
-        @open-preview="emit('open-preview', $event)"
       />
     </ul>
     <div
@@ -358,7 +370,7 @@ const FileRow = defineComponent({
     childrenCache: { type: Object as PropType<Record<string, FileNode[]>>, required: true },
     selectedPath: { type: String as PropType<string | null | undefined>, default: null }
   },
-  emits: ['toggle', 'open-menu', 'open-preview'],
+  emits: ['toggle', 'open-menu'],
   setup(props, { emit }) {
     return () => {
       const isOpen = props.expanded.has(props.node.path)
@@ -394,8 +406,7 @@ const FileRow = defineComponent({
               childrenCache: props.childrenCache,
               selectedPath: props.selectedPath,
               onToggle: (n: FileNode) => emit('toggle', n),
-              onOpenMenu: (n: FileNode, event: MouseEvent) => emit('open-menu', n, event),
-              onOpenPreview: (n: FileNode) => emit('open-preview', n)
+              onOpenMenu: (n: FileNode, event: MouseEvent) => emit('open-menu', n, event)
             })
           )
         }

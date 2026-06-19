@@ -217,7 +217,8 @@ const messages: Record<Locale, Dict> = {
     'orchestrator.error.master-not-running': 'Master agent failed to start.',
     'orchestrator.error.plan-timeout': 'Timed out waiting for the plan. Try regenerating.',
 
-    'common.cancel': 'Cancel'
+    'common.cancel': 'Cancel',
+    'common.close': 'Close'
   },
   zh: {
     'app.subtitle': '多智能体 CLI 工作台',
@@ -310,7 +311,8 @@ const messages: Record<Locale, Dict> = {
     'orchestrator.error.master-not-running': '主代理启动失败。',
     'orchestrator.error.plan-timeout': '等待计划超时，请尝试重新生成。',
 
-    'common.cancel': '取消'
+    'common.cancel': '取消',
+    'common.close': '关闭'
   }
 }
 

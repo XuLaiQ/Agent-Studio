@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useStudioStore } from './stores/studio'
 import ProjectSidebar from './components/ProjectSidebar.vue'
 import FileExplorer from './components/FileExplorer.vue'
@@ -19,9 +19,18 @@ import {
 } from './i18n'
 import type { FileNode, VersionDiffSelection, VersionFileChange } from '@shared/types'
 
+interface Tab {
+  id: string
+  path: string
+  name: string
+  file: FileNode
+}
+
 const store = useStudioStore()
 const leftWidth = ref(Number(localStorage.getItem('agent-studio.leftWidth')) || 300)
-const selectedPreviewFile = ref<FileNode | null>(null)
+const tabs = ref<Tab[]>([])
+const activeTabPath = ref<string | null>(null)
+const previewTabId = ref<string | null>(null)
 const selectedDiff = ref<VersionDiffSelection | null>(null)
 const activeWorkspace = ref<'agents' | 'preview'>('agents')
 const sidebarView = ref<'explorer' | 'sourceControl' | 'workflow' | 'orchestrator'>('explorer')
@@ -54,11 +63,75 @@ function startResize(event: PointerEvent): void {
   window.addEventListener('pointerup', stopResize)
 }
 
-function openFilePreview(node: FileNode): void {
+function previewFile(node: FileNode): void {
   if (node.isDir) return
   selectedDiff.value = null
-  selectedPreviewFile.value = node
   activeWorkspace.value = 'preview'
+
+  const normalizedPath = normalizePath(node.path)
+
+  // 1. 检查文件是否已打开
+  const existingTab = tabs.value.find((t) => normalizePath(t.path) === normalizedPath)
+  if (existingTab) {
+    activeTabPath.value = normalizedPath
+    return
+  }
+
+  // 2. 查找现有预览标签
+  if (previewTabId.value) {
+    const previewTab = tabs.value.find((t) => t.id === previewTabId.value)
+    if (previewTab) {
+      previewTab.path = node.path
+      previewTab.name = node.name
+      previewTab.file = node
+      activeTabPath.value = normalizedPath
+      return
+    }
+  }
+
+  // 3. 创建新的预览标签
+  const newTab: Tab = {
+    id: `preview-${Date.now()}`,
+    path: node.path,
+    name: node.name,
+    file: node
+  }
+  tabs.value.push(newTab)
+  previewTabId.value = newTab.id
+  activeTabPath.value = normalizedPath
+}
+
+function openFileInTab(node: FileNode): void {
+  if (node.isDir) return
+  selectedDiff.value = null
+  activeWorkspace.value = 'preview'
+
+  const normalizedPath = normalizePath(node.path)
+
+  // 1. 检查文件是否已打开
+  const existingTab = tabs.value.find((t) => normalizePath(t.path) === normalizedPath)
+  if (existingTab) {
+    // 如果是预览标签，转换为普通标签
+    if (existingTab.id === previewTabId.value) {
+      previewTabId.value = null
+    }
+    activeTabPath.value = normalizedPath
+    return
+  }
+
+  // 2. 创建新的普通标签
+  const newTab: Tab = {
+    id: `tab-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    path: node.path,
+    name: node.name,
+    file: node
+  }
+  tabs.value.push(newTab)
+  activeTabPath.value = normalizedPath
+}
+
+function selectTab(tabPath: string): void {
+  activeTabPath.value = tabPath
 }
 
 function openDiff(payload: { change: VersionFileChange; staged: boolean }): void {
@@ -80,16 +153,39 @@ function normalizePath(path: string): string {
   return path.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
 }
 
-function handleDeletedEntry(node: FileNode): void {
-  const selected = selectedPreviewFile.value
-  if (!selected) return
+function closeTab(tabPath: string): void {
+  const index = tabs.value.findIndex((t) => normalizePath(t.path) === normalizePath(tabPath))
+  if (index === -1) return
 
-  const deletedPath = normalizePath(node.path)
-  const selectedPath = normalizePath(selected.path)
-  if (selectedPath === deletedPath || selectedPath.startsWith(`${deletedPath}/`)) {
-    selectedPreviewFile.value = null
-    activeWorkspace.value = 'agents'
+  const closedTab = tabs.value[index]
+  if (closedTab.id === previewTabId.value) {
+    previewTabId.value = null
   }
+
+  tabs.value.splice(index, 1)
+
+  if (activeTabPath.value === normalizePath(tabPath)) {
+    if (tabs.value.length > 0) {
+      activeTabPath.value = normalizePath(tabs.value[Math.max(0, index - 1)].path)
+    } else {
+      activeTabPath.value = null
+      activeWorkspace.value = 'agents'
+    }
+  }
+}
+
+function handleDeletedEntry(node: FileNode): void {
+  const deletedPath = normalizePath(node.path)
+
+  const affectedPaths = tabs.value
+    .filter((t) => {
+      const tabPath = normalizePath(t.path)
+      return tabPath === deletedPath || tabPath.startsWith(`${deletedPath}/`)
+    })
+    .map((t) => t.path)
+
+  affectedPaths.forEach((path) => closeTab(path))
+  if (tabs.value.length === 0) activeWorkspace.value = 'agents'
 }
 
 onMounted(() => {
@@ -99,10 +195,24 @@ onMounted(() => {
 
 onBeforeUnmount(() => stopResize())
 
+const selectedFile = computed(() => {
+  if (activeTabPath.value) {
+    const tab = tabs.value.find((t) => normalizePath(t.path) === activeTabPath.value)
+    return tab?.file ?? null
+  }
+  return null
+})
+
+function isTabActive(tabPath: string): boolean {
+  return normalizePath(tabPath) === activeTabPath.value
+}
+
 watch(
   () => store.activeProjectId,
   () => {
-    selectedPreviewFile.value = null
+    tabs.value = []
+    activeTabPath.value = null
+    previewTabId.value = null
     selectedDiff.value = null
     activeWorkspace.value = 'agents'
   }
@@ -219,8 +329,9 @@ watch(
             <ProjectSidebar class="left-top" />
             <FileExplorer
               class="left-bottom"
-              :selected-path="selectedPreviewFile?.path"
-              @open-preview="openFilePreview"
+              :selected-path="selectedFile?.path"
+              @preview-file="previewFile"
+              @open-in-tab="openFileInTab"
               @entry-deleted="handleDeletedEntry"
             />
           </template>
@@ -260,7 +371,34 @@ watch(
               </svg>
               <span>{{ t('workspace.agentsTab') }}</span>
             </button>
+            <div v-if="activeWorkspace === 'preview' && tabs.length > 0" class="editor-tabs">
+              <div
+                v-for="tab in tabs"
+                :key="tab.id"
+                :class="[
+                  'tab-item',
+                  {
+                    active: isTabActive(tab.path),
+                    preview: tab.id === previewTabId
+                  }
+                ]"
+                :title="tab.path"
+                @click="selectTab(tab.path)"
+              >
+                <span class="tab-name">{{ tab.name }}</span>
+                <button
+                  type="button"
+                  class="tab-close"
+                  @click.stop="closeTab(tab.path)"
+                  :title="t('common.close')"
+                  aria-label="Close tab"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
             <button
+              v-else
               type="button"
               :class="{ active: activeWorkspace === 'preview' }"
               @click="activeWorkspace = 'preview'"
@@ -289,7 +427,7 @@ watch(
             />
             <FilePreview
               v-else
-              :file="selectedPreviewFile"
+              :file="selectedFile"
               :project-path="store.activeProject?.path"
             />
           </section>
@@ -416,6 +554,8 @@ watch(
   padding: 0;
   border-bottom: 1px solid var(--border);
   background: var(--bg-soft);
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 .main-switcher button {
   position: relative;
@@ -452,6 +592,79 @@ watch(
 .main-switcher svg {
   width: 14px;
   height: 14px;
+}
+.editor-tabs {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: 0;
+  overflow-x: auto;
+}
+.tab-item {
+  position: relative;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--editor-tab);
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+.tab-item:hover {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+.tab-item.active {
+  background: var(--editor-tab-active);
+  color: var(--text);
+}
+.tab-item.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--accent);
+}
+.tab-item.preview {
+  font-style: italic;
+  opacity: 0.85;
+}
+.tab-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.tab-close {
+  flex: 0 0 16px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: currentColor;
+  cursor: pointer;
+  border-radius: 2px;
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.tab-close:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.15);
 }
 .workspace-page {
   flex: 1;
