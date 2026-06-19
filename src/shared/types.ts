@@ -174,6 +174,32 @@ export interface VersionFileInput {
   path: string
 }
 
+export interface VersionFileDiffInput {
+  projectId: string
+  path: string
+  staged: boolean
+}
+
+export interface VersionDiffSelection {
+  projectId: string
+  path: string
+  originalPath?: string
+  name: string
+  staged: boolean
+}
+
+export interface VersionFileDiff {
+  path: string
+  originalPath?: string
+  name: string
+  /** Baseline content shown on the left side of the diff. */
+  original: string
+  /** Current content shown on the right side of the diff. */
+  modified: string
+  staged: boolean
+  binary: boolean
+}
+
 export interface VersionCommitInput {
   projectId: string
   message: string

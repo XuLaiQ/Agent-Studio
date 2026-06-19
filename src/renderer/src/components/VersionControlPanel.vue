@@ -5,6 +5,10 @@ import { useVersionControlStore } from '../stores/versionControl'
 import { t } from '../i18n'
 import type { VersionBranch, VersionFileChange, VersionProvider } from '@shared/types'
 
+const emit = defineEmits<{
+  (event: 'open-diff', payload: { change: VersionFileChange; staged: boolean }): void
+}>()
+
 const versionStore = useVersionControlStore()
 const commitMessage = ref('')
 const newBranchName = ref('')
@@ -82,6 +86,10 @@ async function addConnection(): Promise<void> {
   form.provider = 'github'
   form.url = ''
   ElMessage.success(t('version.add.done'))
+}
+
+function openDiff(change: VersionFileChange, staged: boolean): void {
+  emit('open-diff', { change, staged })
 }
 
 async function stageFile(change: VersionFileChange): Promise<void> {
@@ -256,18 +264,27 @@ onMounted(() => {
         <div v-if="!versionStore.stagedChanges.length" class="empty small">
           {{ t('version.noStaged') }}
         </div>
-        <button
+        <div
           v-for="change in versionStore.stagedChanges"
           :key="`staged:${change.path}`"
           class="change-row"
-          type="button"
-          :title="change.path"
-          @click="unstageFile(change)"
+          role="button"
+          tabindex="0"
+          :title="`${statusTitle(change)}: ${change.path}`"
+          @click="openDiff(change, true)"
+          @keyup.enter="openDiff(change, true)"
         >
           <span class="status-badge" :data-status="statusLabel(change)">{{ statusLabel(change) }}</span>
           <span class="file-path">{{ change.path }}</span>
-          <span class="row-action">{{ t('version.unstage') }}</span>
-        </button>
+          <button
+            class="row-action-btn"
+            type="button"
+            :title="t('version.unstage')"
+            @click.stop="unstageFile(change)"
+          >
+            <svg><use href="#vc-minus" /></svg>
+          </button>
+        </div>
       </div>
 
       <div class="group">
@@ -286,18 +303,27 @@ onMounted(() => {
         <div v-if="!versionStore.unstagedChanges.length" class="empty small">
           {{ t('version.noChanges') }}
         </div>
-        <button
+        <div
           v-for="change in versionStore.unstagedChanges"
           :key="`change:${change.path}`"
           class="change-row"
-          type="button"
+          role="button"
+          tabindex="0"
           :title="`${statusTitle(change)}: ${change.path}`"
-          @click="stageFile(change)"
+          @click="openDiff(change, false)"
+          @keyup.enter="openDiff(change, false)"
         >
           <span class="status-badge" :data-status="statusLabel(change)">{{ statusLabel(change) }}</span>
           <span class="file-path">{{ change.path }}</span>
-          <span class="row-action">{{ t('version.stage') }}</span>
-        </button>
+          <button
+            class="row-action-btn"
+            type="button"
+            :title="t('version.stage')"
+            @click.stop="stageFile(change)"
+          >
+            <svg><use href="#vc-plus" /></svg>
+          </button>
+        </div>
       </div>
 
       <details class="details" open>
@@ -649,17 +675,38 @@ onMounted(() => {
   text-align: left;
   unicode-bidi: plaintext;
 }
-.row-action {
+.row-action-btn {
   position: absolute;
   right: 6px;
-  max-width: 76px;
-  padding-left: 10px;
-  background: linear-gradient(90deg, transparent, var(--list-hover) 22%);
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
   color: var(--text-dim);
-  font-size: 11px;
+  cursor: pointer;
   opacity: 0;
 }
-.change-row:hover .row-action {
+.row-action-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.45;
+}
+.row-action-btn:hover {
+  color: var(--text);
+  background: var(--list-focus);
+}
+.change-row:hover .row-action-btn,
+.change-row:focus-visible .row-action-btn {
   opacity: 1;
 }
 .connection-row {

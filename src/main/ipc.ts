@@ -14,6 +14,7 @@ import {
   checkoutBranch,
   commit,
   createBranch,
+  diffFile,
   fetchProject,
   pullProject,
   pushProject,
@@ -36,6 +37,7 @@ import type {
   VersionBranchInput,
   VersionCommitInput,
   VersionCreateBranchInput,
+  VersionFileDiffInput,
   VersionFileInput,
   VersionProjectInput
 } from '../shared/types'
@@ -164,6 +166,7 @@ export function registerIpc(): void {
     store.removeVersionConnection(id)
     return store.getVersionConnections()
   })
+  ipcMain.handle('version:fileDiff', (_e, input: VersionFileDiffInput) => diffFile(input))
   ipcMain.handle('version:stageFile', (_e, input: VersionFileInput) => stageFile(input))
   ipcMain.handle('version:unstageFile', (_e, input: VersionFileInput) => unstageFile(input))
   ipcMain.handle('version:stageAll', (_e, input: VersionProjectInput) => stageAll(input))

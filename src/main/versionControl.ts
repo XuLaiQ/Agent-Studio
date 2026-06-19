@@ -1,4 +1,6 @@
 import { execFile } from 'child_process'
+import { readFile } from 'fs/promises'
+import { basename, join } from 'path'
 import { promisify } from 'util'
 import type {
   Project,
@@ -10,6 +12,8 @@ import type {
   VersionCommitLog,
   VersionCommitInput,
   VersionFileChange,
+  VersionFileDiff,
+  VersionFileDiffInput,
   VersionFileInput,
   VersionProvider,
   VersionProjectInput,
@@ -241,6 +245,50 @@ function findProject(input: VersionProjectInput): Project {
   const project = store.getProjects().find((item) => item.id === input.projectId)
   if (!project) throw new Error(`Project not found: ${input.projectId}`)
   return project
+}
+
+function looksBinary(content: string): boolean {
+  return content.includes(String.fromCharCode(0))
+}
+
+export async function diffFile(input: VersionFileDiffInput): Promise<VersionFileDiff> {
+  const project = findProject(input)
+  const cwd = project.path
+  const path = input.path
+
+  const toplevel =
+    (await run('git', ['-C', cwd, 'rev-parse', '--show-toplevel']).catch(() => '')) || cwd
+
+  const showHead = (): Promise<string> =>
+    run('git', ['-C', cwd, 'show', `HEAD:${path}`]).catch(() => '')
+  const showIndex = (): Promise<string> =>
+    run('git', ['-C', cwd, 'show', `:${path}`]).catch(() => '')
+  const readWorkingTree = (): Promise<string> =>
+    readFile(join(toplevel, path), 'utf8').catch(() => '')
+
+  let original = ''
+  let modified = ''
+
+  if (input.staged) {
+    // Staged change: HEAD (left) vs index (right).
+    original = await showHead()
+    modified = await showIndex()
+  } else {
+    // Working-tree change: index/HEAD (left) vs working file (right).
+    original = (await showIndex()) || (await showHead())
+    modified = await readWorkingTree()
+  }
+
+  const binary = looksBinary(original) || looksBinary(modified)
+
+  return {
+    path,
+    name: basename(path),
+    original: binary ? '' : original,
+    modified: binary ? '' : modified,
+    staged: input.staged,
+    binary
+  }
 }
 
 export async function stageFile(input: VersionFileInput): Promise<ProjectVersionStatus> {

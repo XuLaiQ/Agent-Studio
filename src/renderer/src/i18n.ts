@@ -129,6 +129,12 @@ const messages: Record<Locale, Dict> = {
     'version.branch.created': 'Branch created',
     'version.commitHistory': 'Commit history',
     'version.noCommitHistory': 'No commits yet.',
+    'version.diff.title': 'Diff',
+    'version.diff.empty': 'Select a changed file to view its diff.',
+    'version.diff.loading': 'Loading diff...',
+    'version.diff.binary': 'Binary file changes are not shown.',
+    'version.diff.staged': 'Staged',
+    'version.diff.working': 'Working tree',
 
     'workspace.placeholder': 'Import a project on the left to get started.',
     'workspace.agentsTab': 'Agents',
@@ -280,7 +286,13 @@ const zhFallbackMessages: Dict = {
   'version.branch.required': '请填写分支名',
   'version.branch.created': '分支已创建',
   'version.commitHistory': '提交历史',
-  'version.noCommitHistory': '暂无提交记录。'
+  'version.noCommitHistory': '暂无提交记录。',
+  'version.diff.title': '更改对比',
+  'version.diff.empty': '选择一个更改的文件以查看其对比。',
+  'version.diff.loading': '正在加载对比...',
+  'version.diff.binary': '二进制文件的更改不予显示。',
+  'version.diff.staged': '已暂存',
+  'version.diff.working': '工作区'
 }
 
 /** Interpolate {placeholder} tokens with values from `vars`. */

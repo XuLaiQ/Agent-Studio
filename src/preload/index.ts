@@ -22,6 +22,8 @@ import type {
   VersionBranchInput,
   VersionCommitInput,
   VersionCreateBranchInput,
+  VersionFileDiff,
+  VersionFileDiffInput,
   VersionFileInput,
   VersionProjectInput,
   VersionScanResult
@@ -73,6 +75,8 @@ const api = {
     ipcRenderer.invoke('version:addConnection', input),
   removeVersionConnection: (id: string): Promise<VersionConnection[]> =>
     ipcRenderer.invoke('version:removeConnection', id),
+  diffVersionFile: (input: VersionFileDiffInput): Promise<VersionFileDiff> =>
+    ipcRenderer.invoke('version:fileDiff', input),
   stageVersionFile: (input: VersionFileInput): Promise<ProjectVersionStatus> =>
     ipcRenderer.invoke('version:stageFile', input),
   unstageVersionFile: (input: VersionFileInput): Promise<ProjectVersionStatus> =>

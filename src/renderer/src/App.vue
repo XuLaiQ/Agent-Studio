@@ -6,6 +6,7 @@ import FileExplorer from './components/FileExplorer.vue'
 import VersionControlPanel from './components/VersionControlPanel.vue'
 import AgentWorkspace from './components/AgentWorkspace.vue'
 import FilePreview from './components/FilePreview.vue'
+import FileDiffView from './components/FileDiffView.vue'
 import {
   locale,
   setLocale,
@@ -14,11 +15,12 @@ import {
   LOCALE_OPTIONS,
   type Locale
 } from './i18n'
-import type { FileNode } from '@shared/types'
+import type { FileNode, VersionDiffSelection, VersionFileChange } from '@shared/types'
 
 const store = useStudioStore()
 const leftWidth = ref(Number(localStorage.getItem('agent-studio.leftWidth')) || 300)
 const selectedPreviewFile = ref<FileNode | null>(null)
+const selectedDiff = ref<VersionDiffSelection | null>(null)
 const activeWorkspace = ref<'agents' | 'preview'>('agents')
 const sidebarView = ref<'explorer' | 'sourceControl'>('explorer')
 let resizing = false
@@ -52,7 +54,23 @@ function startResize(event: PointerEvent): void {
 
 function openFilePreview(node: FileNode): void {
   if (node.isDir) return
+  selectedDiff.value = null
   selectedPreviewFile.value = node
+  activeWorkspace.value = 'preview'
+}
+
+function openDiff(payload: { change: VersionFileChange; staged: boolean }): void {
+  const projectId = store.activeProjectId
+  if (!projectId) return
+
+  const { change, staged } = payload
+  selectedDiff.value = {
+    projectId,
+    path: change.path,
+    originalPath: change.originalPath,
+    name: change.path.replace(/\\/g, '/').split('/').pop() ?? change.path,
+    staged
+  }
   activeWorkspace.value = 'preview'
 }
 
@@ -83,6 +101,7 @@ watch(
   () => store.activeProjectId,
   () => {
     selectedPreviewFile.value = null
+    selectedDiff.value = null
     activeWorkspace.value = 'agents'
   }
 )
@@ -162,7 +181,7 @@ watch(
               @entry-deleted="handleDeletedEntry"
             />
           </template>
-          <VersionControlPanel v-else class="source-control-sidebar" />
+          <VersionControlPanel v-else class="source-control-sidebar" @open-diff="openDiff" />
         </aside>
         <div
           class="splitter"
@@ -214,7 +233,16 @@ watch(
             <AgentWorkspace />
           </section>
           <section v-show="activeWorkspace === 'preview'" class="workspace-page">
-            <FilePreview :file="selectedPreviewFile" :project-path="store.activeProject?.path" />
+            <FileDiffView
+              v-if="selectedDiff"
+              :diff="selectedDiff"
+              :project-path="store.activeProject?.path"
+            />
+            <FilePreview
+              v-else
+              :file="selectedPreviewFile"
+              :project-path="store.activeProject?.path"
+            />
           </section>
         </main>
       </div>
