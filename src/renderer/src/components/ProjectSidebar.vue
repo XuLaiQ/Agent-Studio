@@ -25,6 +25,24 @@ async function confirmRemove(project: Project): Promise<void> {
   }
 }
 
+async function confirmRemoveAll(): Promise<void> {
+  if (!store.projects.length) return
+  try {
+    await ElMessageBox.confirm(
+      t('projects.removeAll.confirm', { count: store.projects.length }),
+      t('projects.removeAll.title'),
+      {
+        type: 'warning',
+        confirmButtonText: t('projects.removeAll.button'),
+        cancelButtonText: t('common.cancel')
+      }
+    )
+    await store.removeAllProjects()
+  } catch {
+    /* cancelled */
+  }
+}
+
 function openContextMenu(project: Project, event: MouseEvent): void {
   event.preventDefault()
   event.stopPropagation()
@@ -74,9 +92,20 @@ onBeforeUnmount(() => {
   <div class="sidebar">
     <div class="section-head">
       <span>{{ t('projects.title') }}</span>
-      <el-button size="small" type="primary" plain @click="store.importProject()">
-        {{ t('projects.import') }}
-      </el-button>
+      <div class="head-actions">
+        <el-button
+          size="small"
+          type="danger"
+          plain
+          :disabled="!store.projects.length"
+          @click="confirmRemoveAll"
+        >
+          {{ t('projects.removeAll.button') }}
+        </el-button>
+        <el-button size="small" type="primary" plain @click="store.importProject()">
+          {{ t('projects.import') }}
+        </el-button>
+      </div>
     </div>
 
     <div v-if="!store.projects.length" class="empty">
@@ -140,6 +169,11 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   font-size: 11px;
   letter-spacing: 0.5px;
+}
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .empty {
   color: var(--text-dim);

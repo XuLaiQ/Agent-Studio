@@ -34,6 +34,10 @@ const messages: Record<Locale, Dict> = {
       'Remove project "{name}"? Its agents and terminals will be closed.',
     'projects.remove.button': 'Remove',
     'projects.remove.tip': 'Remove project',
+    'projects.removeAll.title': 'Remove all projects',
+    'projects.removeAll.confirm':
+      'Remove all {count} projects? Their agents and terminals will be closed.',
+    'projects.removeAll.button': 'Remove all',
     'projects.open.external': 'Open in file manager',
 
     'explorer.title': 'Explorer',
@@ -227,6 +231,9 @@ const messages: Record<Locale, Dict> = {
     'projects.remove.confirm': '移除项目「{name}」？其智能体和终端将被关闭。',
     'projects.remove.button': '移除',
     'projects.remove.tip': '移除项目',
+    'projects.removeAll.title': '移除全部项目',
+    'projects.removeAll.confirm': '移除全部 {count} 个项目？它们的智能体和终端将被关闭。',
+    'projects.removeAll.button': '移除全部',
 
     'explorer.title': '文件浏览器',
     'explorer.empty': '选择一个项目以浏览文件。',

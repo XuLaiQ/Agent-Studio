@@ -51,6 +51,15 @@ export const useStudioStore = defineStore('studio', () => {
     await versionControlStore.scan()
   }
 
+  async function removeAllProjects(): Promise<void> {
+    for (const id of projects.value.map((p) => p.id)) {
+      projects.value = await window.studio.removeProject(id)
+    }
+    activeProjectId.value = projects.value[0]?.id ?? null
+    activeAgentId.value = activeProject.value?.agents[0]?.id ?? null
+    await versionControlStore.scan()
+  }
+
   function selectProject(id: string): void {
     activeProjectId.value = id
     const proj = projects.value.find((p) => p.id === id)
@@ -100,6 +109,7 @@ export const useStudioStore = defineStore('studio', () => {
     loadProjects,
     importProject,
     removeProject,
+    removeAllProjects,
     selectProject,
     createAgent,
     removeAgent,
