@@ -115,6 +115,7 @@ export interface VersionBranch {
   remote: boolean
   upstream?: string
   headHash?: string
+  pushedHash?: string
 }
 
 export interface VersionCommitLog {

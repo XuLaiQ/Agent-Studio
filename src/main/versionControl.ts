@@ -138,17 +138,30 @@ function parseRemoteBranches(output: string): VersionBranch[] {
         name,
         current: false,
         remote: true,
-        headHash
+        headHash,
+        pushedHash: headHash
       }
     })
     .filter((branch): branch is VersionBranch => Boolean(branch))
 }
 
+function attachLocalPushedHashes(
+  localBranches: VersionBranch[],
+  remoteBranches: VersionBranch[]
+): VersionBranch[] {
+  const remoteHashByName = new Map(remoteBranches.map((branch) => [branch.name, branch.headHash]))
+
+  return localBranches.map((branch) => ({
+    ...branch,
+    pushedHash: branch.upstream ? remoteHashByName.get(branch.upstream) : undefined
+  }))
+}
+
 function attachCommitBranches(commits: VersionCommitLog[], branches: VersionBranch[]): VersionCommitLog[] {
   const branchesByHash = new Map<string, string[]>()
   for (const branch of branches) {
-    if (!branch.headHash) continue
-    const commit = commits.find((item) => item.hash === branch.headHash || item.hash.startsWith(branch.headHash))
+    if (!branch.pushedHash) continue
+    const commit = commits.find((item) => item.hash === branch.pushedHash || item.hash.startsWith(branch.pushedHash))
     if (!commit) continue
     const names = branchesByHash.get(commit.hash) ?? []
     names.push(branch.name)
@@ -263,6 +276,10 @@ async function scanProject(project: Project): Promise<ProjectVersionStatus> {
         '-C',
         project.path,
         'log',
+        'HEAD',
+        '--branches',
+        '--remotes',
+        '--tags',
         '-n',
         '30',
         '--date=iso',
@@ -270,8 +287,8 @@ async function scanProject(project: Project): Promise<ProjectVersionStatus> {
       ]).catch(() => '')
     ])
     const tracking = parseAheadBehind(trackingOutput, upstreamOutput)
-    const localBranches = parseLocalBranches(branchOutput)
     const remoteBranches = parseRemoteBranches(remoteBranchOutput)
+    const localBranches = attachLocalPushedHashes(parseLocalBranches(branchOutput), remoteBranches)
     const commitHistory = attachCommitBranches(parseCommitHistory(commitHistoryOutput), [
       ...localBranches,
       ...remoteBranches
