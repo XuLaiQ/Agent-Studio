@@ -126,6 +126,8 @@ export interface VersionCommitLog {
   date: string
   relativeDate: string
   branches: string[]
+  pushed: boolean
+  pushedBranches: string[]
 }
 
 /** A single file touched by a commit, derived from `git show --name-status`. */

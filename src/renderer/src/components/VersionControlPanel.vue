@@ -59,6 +59,22 @@ function branchBadgeStyle(name: string): Record<string, string> {
   }
 }
 
+function commitMarkerStyle(commit: VersionCommitLog): Record<string, string> {
+  const branch = commit.branches[0] ?? commit.pushedBranches[0]
+  if (!branch) {
+    return {
+      '--commit-marker-fill': 'var(--info)',
+      '--commit-marker-glow': 'rgba(59, 130, 246, 0.18)'
+    }
+  }
+
+  const hue = branchHue(branch)
+  return {
+    '--commit-marker-fill': `hsl(${hue}, 82%, 74%)`,
+    '--commit-marker-glow': `hsla(${hue}, 68%, 48%, 0.18)`
+  }
+}
+
 function statusLabel(change: VersionFileChange): string {
   const code = change.staged ? change.indexStatus : change.workTreeStatus
   if (code === 'M') return 'M'
@@ -450,9 +466,12 @@ onMounted(() => {
             @click="toggleCommit(commit)"
             @keyup.enter="toggleCommit(commit)"
           >
-            <svg class="commit-caret" :class="{ open: isCommitExpanded(commit.hash) }">
-              <use href="#vc-caret" />
-            </svg>
+            <span
+              class="commit-marker"
+              :class="{ pushed: commit.pushed }"
+              :style="commitMarkerStyle(commit)"
+              aria-hidden="true"
+            />
             <div class="commit-content">
               <div class="commit-subject">{{ commit.subject }}</div>
               <div class="commit-meta">
@@ -722,9 +741,18 @@ onMounted(() => {
 .commit-row:hover {
   background: var(--list-hover);
 }
-.commit-row svg {
-  margin-top: 2px;
-  color: var(--text-dim);
+.commit-marker {
+  width: 10px;
+  height: 10px;
+  margin: 4px 0 0 3px;
+  border: 1.5px solid var(--text-muted);
+  border-radius: 50%;
+  background: transparent;
+}
+.commit-marker.pushed {
+  border-color: var(--commit-marker-fill);
+  background: var(--commit-marker-fill);
+  box-shadow: 0 0 0 3px var(--commit-marker-glow);
 }
 .commit-content {
   min-width: 0;
@@ -767,12 +795,6 @@ onMounted(() => {
   line-height: 1.2;
   overflow-wrap: anywhere;
   text-align: right;
-}
-.commit-caret {
-  transition: transform 0.12s ease;
-}
-.commit-caret.open {
-  transform: rotate(90deg);
 }
 .commit-files {
   padding: 2px 0 4px;

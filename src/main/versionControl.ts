@@ -131,7 +131,7 @@ function parseRemoteBranches(output: string): VersionBranch[] {
   return output
     .split(/\r?\n/)
     .map((line) => {
-      const [headHash, name] = line.trim().split('\x1f')
+      const [headHash, name] = line.trim().split('\t')
       if (!headHash || !name || name.endsWith('/HEAD')) return null
 
       return {
@@ -143,18 +143,6 @@ function parseRemoteBranches(output: string): VersionBranch[] {
       }
     })
     .filter((branch): branch is VersionBranch => Boolean(branch))
-}
-
-function attachLocalPushedHashes(
-  localBranches: VersionBranch[],
-  remoteBranches: VersionBranch[]
-): VersionBranch[] {
-  const remoteHashByName = new Map(remoteBranches.map((branch) => [branch.name, branch.headHash]))
-
-  return localBranches.map((branch) => ({
-    ...branch,
-    pushedHash: branch.upstream ? remoteHashByName.get(branch.upstream) : undefined
-  }))
 }
 
 function attachCommitBranches(commits: VersionCommitLog[], branches: VersionBranch[]): VersionCommitLog[] {
@@ -174,6 +162,89 @@ function attachCommitBranches(commits: VersionCommitLog[], branches: VersionBran
   }))
 }
 
+function displayBranchName(branch: VersionBranch, localBranches: VersionBranch[]): string {
+  return localBranches.find((localBranch) => localBranch.upstream === branch.name)?.name ?? branch.name
+}
+
+function attachPushedState(
+  commits: VersionCommitLog[],
+  pushedBranchesByHash: Map<string, string[]>
+): VersionCommitLog[] {
+  return commits.map((commit) => ({
+    ...commit,
+    pushed: pushedBranchesByHash.has(commit.hash),
+    pushedBranches: pushedBranchesByHash.get(commit.hash) ?? []
+  }))
+}
+
+async function collectPushedBranchesByHash(
+  projectPath: string,
+  localBranches: VersionBranch[],
+  remoteBranches: VersionBranch[]
+): Promise<Map<string, string[]>> {
+  const pushedBranchEntriesByHash = new Map<string, Array<{ name: string; distance: number }>>()
+  const branchHistories = await Promise.all(
+    remoteBranches.map(async (branch) => ({
+      name: displayBranchName(branch, localBranches),
+      output: await run('git', ['-C', projectPath, 'rev-list', '-n', '1000', branch.name]).catch(() => '')
+    }))
+  )
+
+  for (const branch of branchHistories) {
+    const hashes = branch.output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+    hashes.forEach((hash, distance) => {
+      const entries = pushedBranchEntriesByHash.get(hash) ?? []
+      if (!entries.some((entry) => entry.name === branch.name)) {
+        entries.push({ name: branch.name, distance })
+      }
+      pushedBranchEntriesByHash.set(hash, entries)
+    })
+  }
+
+  const pushedBranchesByHash = new Map<string, string[]>()
+  for (const [hash, entries] of pushedBranchEntriesByHash) {
+    pushedBranchesByHash.set(
+      hash,
+      entries
+        .sort((a, b) => a.distance - b.distance || a.name.localeCompare(b.name))
+        .map((entry) => entry.name)
+    )
+  }
+
+  return pushedBranchesByHash
+}
+
+function pushedBranchMarkers(localBranches: VersionBranch[], remoteBranches: VersionBranch[]): VersionBranch[] {
+  const remoteHashByName = new Map(remoteBranches.map((branch) => [branch.name, branch.headHash]))
+  const trackedUpstreams = new Set<string>()
+
+  const localMarkers = localBranches
+    .map((branch) => {
+      if (!branch.upstream) return null
+      const pushedHash = remoteHashByName.get(branch.upstream)
+      if (!pushedHash) return null
+
+      trackedUpstreams.add(branch.upstream)
+      return {
+        name: branch.name,
+        current: branch.current,
+        remote: false,
+        upstream: branch.upstream,
+        pushedHash
+      }
+    })
+    .filter((branch): branch is VersionBranch => Boolean(branch))
+
+  const untrackedRemoteMarkers = remoteBranches
+    .filter((branch) => !trackedUpstreams.has(branch.name))
+    .map((branch) => ({
+      ...branch,
+      pushedHash: branch.headHash
+    }))
+
+  return [...localMarkers, ...untrackedRemoteMarkers]
+}
+
 function parseCommitHistory(output: string): VersionCommitLog[] {
   return output
     .split(/\r?\n/)
@@ -188,7 +259,9 @@ function parseCommitHistory(output: string): VersionCommitLog[] {
         date,
         relativeDate,
         subject,
-        branches: []
+        branches: [],
+        pushed: false,
+        pushedBranches: []
       }
     })
     .filter((commit): commit is VersionCommitLog => Boolean(commit))
@@ -263,7 +336,7 @@ async function scanProject(project: Project): Promise<ProjectVersionStatus> {
         '-C',
         project.path,
         'for-each-ref',
-        '--format=%(objectname)%x1f%(refname:short)',
+        '--format=%(objectname)\t%(refname:short)',
         'refs/remotes'
       ]).catch(() => ''),
       run('git', ['-C', project.path, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']).catch(
@@ -288,11 +361,16 @@ async function scanProject(project: Project): Promise<ProjectVersionStatus> {
     ])
     const tracking = parseAheadBehind(trackingOutput, upstreamOutput)
     const remoteBranches = parseRemoteBranches(remoteBranchOutput)
-    const localBranches = attachLocalPushedHashes(parseLocalBranches(branchOutput), remoteBranches)
-    const commitHistory = attachCommitBranches(parseCommitHistory(commitHistoryOutput), [
-      ...localBranches,
-      ...remoteBranches
-    ])
+    const localBranches = parseLocalBranches(branchOutput)
+    const pushedBranchesByHash = await collectPushedBranchesByHash(
+      project.path,
+      localBranches,
+      remoteBranches
+    )
+    const commitHistory = attachCommitBranches(
+      attachPushedState(parseCommitHistory(commitHistoryOutput), pushedBranchesByHash),
+      pushedBranchMarkers(localBranches, remoteBranches)
+    )
 
     return {
       projectId: project.id,
