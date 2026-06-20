@@ -110,15 +110,18 @@ function parseLocalBranches(output: string): VersionBranch[] {
       if (!trimmed) return null
 
       const current = line.startsWith('*')
-      const body = trimmed.replace(/^\*\s*/, '')
-      const name = body.split(/\s+/)[0]
+      const body = trimmed.replace(/^[*+]\s*/, '')
+      const parts = body.split(/\s+/)
+      const name = parts[0]
+      const headHash = parts[1]
       const upstreamMatch = body.match(/\[([^\]:]+)(?::[^\]]+)?\]/)
 
       return {
         name,
         current,
         remote: false,
-        upstream: upstreamMatch?.[1]
+        upstream: upstreamMatch?.[1],
+        headHash
       }
     })
     .filter((branch): branch is VersionBranch => Boolean(branch))
@@ -127,13 +130,35 @@ function parseLocalBranches(output: string): VersionBranch[] {
 function parseRemoteBranches(output: string): VersionBranch[] {
   return output
     .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.includes(' -> '))
-    .map((name) => ({
-      name,
-      current: false,
-      remote: true
-    }))
+    .map((line) => {
+      const [headHash, name] = line.trim().split('\x1f')
+      if (!headHash || !name || name.endsWith('/HEAD')) return null
+
+      return {
+        name,
+        current: false,
+        remote: true,
+        headHash
+      }
+    })
+    .filter((branch): branch is VersionBranch => Boolean(branch))
+}
+
+function attachCommitBranches(commits: VersionCommitLog[], branches: VersionBranch[]): VersionCommitLog[] {
+  const branchesByHash = new Map<string, string[]>()
+  for (const branch of branches) {
+    if (!branch.headHash) continue
+    const commit = commits.find((item) => item.hash === branch.headHash || item.hash.startsWith(branch.headHash))
+    if (!commit) continue
+    const names = branchesByHash.get(commit.hash) ?? []
+    names.push(branch.name)
+    branchesByHash.set(commit.hash, names)
+  }
+
+  return commits.map((commit) => ({
+    ...commit,
+    branches: branchesByHash.get(commit.hash) ?? []
+  }))
 }
 
 function parseCommitHistory(output: string): VersionCommitLog[] {
@@ -149,7 +174,8 @@ function parseCommitHistory(output: string): VersionCommitLog[] {
         author,
         date,
         relativeDate,
-        subject
+        subject,
+        branches: []
       }
     })
     .filter((commit): commit is VersionCommitLog => Boolean(commit))
@@ -219,8 +245,14 @@ async function scanProject(project: Project): Promise<ProjectVersionStatus> {
       run('git', ['-C', project.path, 'remote', '-v']).catch(() => ''),
       run('git', ['-C', project.path, 'status', '--porcelain']).catch(() => ''),
       run('git', ['-C', project.path, 'log', '-1', '--pretty=%h %s']).catch(() => ''),
-      run('git', ['-C', project.path, 'branch', '-vv']).catch(() => ''),
-      run('git', ['-C', project.path, 'branch', '-r']).catch(() => ''),
+      run('git', ['-C', project.path, 'branch', '-vv', '--no-abbrev']).catch(() => ''),
+      run('git', [
+        '-C',
+        project.path,
+        'for-each-ref',
+        '--format=%(objectname)%x1f%(refname:short)',
+        'refs/remotes'
+      ]).catch(() => ''),
       run('git', ['-C', project.path, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']).catch(
         () => ''
       ),
@@ -238,6 +270,12 @@ async function scanProject(project: Project): Promise<ProjectVersionStatus> {
       ]).catch(() => '')
     ])
     const tracking = parseAheadBehind(trackingOutput, upstreamOutput)
+    const localBranches = parseLocalBranches(branchOutput)
+    const remoteBranches = parseRemoteBranches(remoteBranchOutput)
+    const commitHistory = attachCommitBranches(parseCommitHistory(commitHistoryOutput), [
+      ...localBranches,
+      ...remoteBranches
+    ])
 
     return {
       projectId: project.id,
@@ -249,11 +287,11 @@ async function scanProject(project: Project): Promise<ProjectVersionStatus> {
       ahead: tracking.ahead,
       behind: tracking.behind,
       remotes: parseRemotes(remoteOutput),
-      localBranches: parseLocalBranches(branchOutput),
-      remoteBranches: parseRemoteBranches(remoteBranchOutput),
+      localBranches,
+      remoteBranches,
       dirty: dirtyOutput.length > 0,
       lastCommit: lastCommit || undefined,
-      commitHistory: parseCommitHistory(commitHistoryOutput),
+      commitHistory,
       changes: parseChanges(dirtyOutput)
     }
   } catch (err) {

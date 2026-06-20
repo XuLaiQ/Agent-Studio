@@ -42,6 +42,23 @@ const canCommit = computed(
 )
 const hasRemote = computed(() => Boolean(activeStatus.value?.remotes.length))
 
+function branchHue(name: string): number {
+  let hash = 0
+  for (const char of name) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 360
+  }
+  return hash
+}
+
+function branchBadgeStyle(name: string): Record<string, string> {
+  const hue = branchHue(name)
+  return {
+    backgroundColor: `hsla(${hue}, 68%, 48%, 0.18)`,
+    borderColor: `hsla(${hue}, 72%, 58%, 0.38)`,
+    color: `hsl(${hue}, 82%, 74%)`
+  }
+}
+
 function statusLabel(change: VersionFileChange): string {
   const code = change.staged ? change.indexStatus : change.workTreeStatus
   if (code === 'M') return 'M'
@@ -444,6 +461,17 @@ onMounted(() => {
                 <span>{{ commit.relativeDate }}</span>
               </div>
             </div>
+            <div v-if="commit.branches.length" class="commit-branches" aria-label="Commit branches">
+              <span
+                v-for="branch in commit.branches"
+                :key="branch"
+                class="commit-branch"
+                :style="branchBadgeStyle(branch)"
+                :title="branch"
+              >
+                {{ branch }}
+              </span>
+            </div>
           </div>
           <div v-if="isCommitExpanded(commit.hash)" class="commit-files">
             <div v-if="loadingCommit === commit.hash" class="empty small">
@@ -686,8 +714,9 @@ onMounted(() => {
 }
 .commit-row {
   display: grid;
-  grid-template-columns: 18px 1fr;
+  grid-template-columns: 18px minmax(0, 1fr);
   gap: 6px;
+  align-items: start;
   padding: 5px 12px;
 }
 .commit-row:hover {
@@ -713,6 +742,31 @@ onMounted(() => {
   color: var(--text-dim);
   font-size: 11px;
   white-space: nowrap;
+}
+.commit-branches {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  padding-top: 2px;
+}
+.commit-branch {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 18px;
+  padding: 2px 6px;
+  border: 1px solid;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  text-align: right;
 }
 .commit-caret {
   transition: transform 0.12s ease;

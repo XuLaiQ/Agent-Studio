@@ -114,6 +114,7 @@ export interface VersionBranch {
   current: boolean
   remote: boolean
   upstream?: string
+  headHash?: string
 }
 
 export interface VersionCommitLog {
@@ -123,6 +124,7 @@ export interface VersionCommitLog {
   author: string
   date: string
   relativeDate: string
+  branches: string[]
 }
 
 /** A single file touched by a commit, derived from `git show --name-status`. */
