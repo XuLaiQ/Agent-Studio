@@ -84,6 +84,9 @@ class PtyManager {
     sender.send('agent:status', { agentId: input.agentId, status: 'running' })
 
     proc.onData((data) => {
+      // Ignore trailing output from a proc that has already been superseded by
+      // a resume/restart under the same agentId.
+      if (this.sessions.get(input.agentId) !== session) return
       session.lastDataAt = Date.now()
       if (session.capturing) {
         session.captureChunks.push(data)
@@ -97,6 +100,12 @@ class PtyManager {
     })
 
     proc.onExit(({ exitCode }) => {
+      // A resume/restart kills the previous proc and immediately spawns a new
+      // one under the same agentId. The old proc's exit fires asynchronously —
+      // only tear down the map entry / notify the renderer if THIS session is
+      // still the active one, otherwise we'd evict the freshly-started session
+      // and its terminal would stop accepting input.
+      if (this.sessions.get(input.agentId) !== session) return
       this.sessions.delete(input.agentId)
       sender.send('pty:exit', { agentId: input.agentId, exitCode })
       sender.send('agent:status', {

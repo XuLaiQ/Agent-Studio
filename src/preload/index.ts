@@ -49,6 +49,8 @@ const api = {
   removeProject: (id: string): Promise<Project[]> => ipcRenderer.invoke('project:remove', id),
   openProjectPath: (projectPath: string): Promise<string> =>
     ipcRenderer.invoke('project:openPath', projectPath),
+  revealInFolder: (targetPath: string): Promise<void> =>
+    ipcRenderer.invoke('fs:revealInFolder', targetPath),
 
   // Agents
   createAgent: (input: CreateAgentInput): Promise<Agent> =>

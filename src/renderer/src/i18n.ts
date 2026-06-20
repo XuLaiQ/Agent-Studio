@@ -47,6 +47,7 @@ const messages: Record<Locale, Dict> = {
     'explorer.copy.relative.done': 'Relative path copied',
     'explorer.copy.absolute.done': 'Absolute path copied',
     'explorer.preview': 'Preview file',
+    'explorer.reveal': 'Reveal in file manager',
     'explorer.create.file': 'New file',
     'explorer.create.folder': 'New folder',
     'explorer.create.file.prompt': 'Create a file in the selected location.',
@@ -318,6 +319,7 @@ const messages: Record<Locale, Dict> = {
 
 const zhFallbackMessages: Dict = {
   'explorer.preview': '\u9884\u89c8\u6587\u4ef6',
+  'explorer.reveal': '\u5728\u6587\u4ef6\u7ba1\u7406\u5668\u4e2d\u6253\u5f00',
   'explorer.create.file': '\u65b0\u5efa\u6587\u4ef6',
   'explorer.create.folder': '\u65b0\u5efa\u6587\u4ef6\u5939',
   'explorer.create.file.prompt': '\u5728\u9009\u4e2d\u4f4d\u7f6e\u65b0\u5efa\u6587\u4ef6\u3002',

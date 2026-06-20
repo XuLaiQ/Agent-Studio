@@ -165,6 +165,11 @@ export function registerIpc(): void {
 
   ipcMain.handle('project:openPath', (_e, projectPath: string) => shell.openPath(projectPath))
 
+  // Reveal a file or folder in the OS file manager (Explorer / Finder / etc.).
+  ipcMain.handle('fs:revealInFolder', (_e, targetPath: string) => {
+    shell.showItemInFolder(targetPath)
+  })
+
   // ---- Agents ----
   ipcMain.handle('agent:create', (_e, input: CreateAgentInput) => store.addAgent(input))
 

@@ -68,6 +68,8 @@ function resumeSession(id: string): void {
   term?.reset()
   started = false
   startSession({ resumeSessionId: id })
+  // Return focus to the terminal so the resumed session accepts input at once.
+  term?.focus()
 }
 
 // ---- Agent Bus (forward to another agent) ----

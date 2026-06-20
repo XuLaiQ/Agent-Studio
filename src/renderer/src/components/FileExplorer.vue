@@ -120,7 +120,7 @@ function openContextMenu(node: FileNode, event: MouseEvent): void {
   event.stopPropagation()
 
   const menuWidth = 210
-  const menuHeight = node.isDir ? 214 : 244
+  const menuHeight = node.isDir ? 242 : 272
   contextMenu.value = {
     node,
     x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
@@ -180,6 +180,14 @@ function openPreviewFromMenu(): void {
 
   closeContextMenu()
   emit('open-in-tab', node)
+}
+
+function revealInFolder(): void {
+  const node = contextMenu.value?.node
+  if (!node) return
+
+  closeContextMenu()
+  window.studio.revealInFolder(node.path)
 }
 
 function errorText(err: unknown): string {
@@ -309,6 +317,9 @@ onBeforeUnmount(() => {
       </button>
       <button type="button" @click="copyPath('absolute')">
         {{ t('explorer.copy.absolute') }}
+      </button>
+      <button type="button" @click="revealInFolder">
+        {{ t('explorer.reveal') }}
       </button>
       <div class="menu-separator" />
       <button type="button" @click="createEntry('file')">
