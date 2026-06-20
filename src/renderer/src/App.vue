@@ -6,6 +6,8 @@ import FileExplorer from './components/FileExplorer.vue'
 import VersionControlPanel from './components/VersionControlPanel.vue'
 import WorkflowPanel from './components/WorkflowPanel.vue'
 import OrchestratorPanel from './components/OrchestratorPanel.vue'
+import TokenUsagePanel from './components/TokenUsagePanel.vue'
+import TokenUsageDashboard from './components/TokenUsageDashboard.vue'
 import AgentWorkspace from './components/AgentWorkspace.vue'
 import FilePreview from './components/FilePreview.vue'
 import FileDiffView from './components/FileDiffView.vue'
@@ -33,7 +35,9 @@ const activeTabPath = ref<string | null>(null)
 const previewTabId = ref<string | null>(null)
 const selectedDiff = ref<VersionDiffSelection | null>(null)
 const activeWorkspace = ref<'agents' | 'preview'>('agents')
-const sidebarView = ref<'explorer' | 'sourceControl' | 'workflow' | 'orchestrator'>('explorer')
+const sidebarView = ref<
+  'explorer' | 'sourceControl' | 'workflow' | 'orchestrator' | 'tokens'
+>('explorer')
 let resizing = false
 
 function clampLeftWidth(width: number): number {
@@ -322,6 +326,19 @@ watch(
               />
             </svg>
           </button>
+          <button
+            type="button"
+            class="activity-item"
+            :class="{ active: sidebarView === 'tokens' }"
+            :title="t('tokens.title')"
+            @click="sidebarView = 'tokens'"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3.5" y="13" width="4" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.6" />
+              <rect x="10" y="8" width="4" height="12" rx="1" fill="none" stroke="currentColor" stroke-width="1.6" />
+              <rect x="16.5" y="4" width="4" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="1.6" />
+            </svg>
+          </button>
         </nav>
 
         <aside class="left" :style="{ width: `${leftWidth}px` }">
@@ -341,7 +358,11 @@ watch(
             @open-diff="openDiff"
           />
           <WorkflowPanel v-else-if="sidebarView === 'workflow'" class="source-control-sidebar" />
-          <OrchestratorPanel v-else class="source-control-sidebar" />
+          <OrchestratorPanel
+            v-else-if="sidebarView === 'orchestrator'"
+            class="source-control-sidebar"
+          />
+          <TokenUsagePanel v-else class="source-control-sidebar" />
         </aside>
         <div
           class="splitter"
@@ -353,6 +374,10 @@ watch(
           @pointerdown="startResize"
         />
         <main class="main">
+          <TokenUsageDashboard v-if="sidebarView === 'tokens'" />
+          <!-- Kept mounted (v-show, not v-if) so agent terminals/PTYs survive
+               switching to the token dashboard and back. -->
+          <div v-show="sidebarView !== 'tokens'" class="workspace-stack">
           <div class="main-switcher">
             <button
               type="button"
@@ -431,6 +456,7 @@ watch(
               :project-path="store.activeProject?.path"
             />
           </section>
+          </div>
         </main>
       </div>
     </div>
@@ -545,6 +571,13 @@ watch(
   display: flex;
   flex-direction: column;
   background: var(--bg);
+}
+.workspace-stack {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .main-switcher {
   flex: 0 0 35px;

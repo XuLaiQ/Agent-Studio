@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import type {
   CreateVersionConnectionInput,
   ProjectVersionStatus,
+  VersionCommitFile,
   VersionConnection,
   VersionProvider,
   VersionScanResult
@@ -122,6 +123,10 @@ export const useVersionControlStore = defineStore('versionControl', () => {
     )
   }
 
+  async function loadCommitFiles(projectId: string, hash: string): Promise<VersionCommitFile[]> {
+    return window.studio.getVersionCommitFiles({ projectId, hash })
+  }
+
   function providerLabel(provider: VersionProvider): string {
     if (provider === 'github') return 'GitHub'
     if (provider === 'gitlab') return 'GitLab'
@@ -153,6 +158,7 @@ export const useVersionControlStore = defineStore('versionControl', () => {
     push,
     checkoutBranch,
     createBranch,
+    loadCommitFiles,
     providerLabel
   }
 })

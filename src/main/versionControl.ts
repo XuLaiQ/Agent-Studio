@@ -10,6 +10,8 @@ import type {
   VersionBranchInput,
   VersionCreateBranchInput,
   VersionCommitLog,
+  VersionCommitFile,
+  VersionCommitFilesInput,
   VersionCommitInput,
   VersionFileChange,
   VersionFileDiff,
@@ -151,6 +153,37 @@ function parseCommitHistory(output: string): VersionCommitLog[] {
       }
     })
     .filter((commit): commit is VersionCommitLog => Boolean(commit))
+}
+
+function parseCommitFiles(output: string): VersionCommitFile[] {
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const parts = line.split(/\t/)
+      const status = (parts[0]?.[0] ?? '').toUpperCase()
+      // Renames/copies are reported as "R100\told\tnew" (or "C100\told\tnew").
+      if ((status === 'R' || status === 'C') && parts.length >= 3) {
+        return { status, originalPath: parts[1], path: parts[2] }
+      }
+      return { status: status || 'M', path: parts[parts.length - 1] }
+    })
+    .filter((file): file is VersionCommitFile => Boolean(file.path))
+}
+
+export async function commitFiles(input: VersionCommitFilesInput): Promise<VersionCommitFile[]> {
+  const project = findProject(input)
+  const output = await run('git', [
+    '-C',
+    project.path,
+    'show',
+    '--name-status',
+    '--format=',
+    '-M',
+    input.hash
+  ])
+  return parseCommitFiles(output)
 }
 
 async function detectTool(tool: 'git' | 'gh' | 'glab'): Promise<VersionToolStatus> {

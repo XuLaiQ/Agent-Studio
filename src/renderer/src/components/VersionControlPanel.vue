@@ -3,7 +3,13 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useVersionControlStore } from '../stores/versionControl'
 import { t } from '../i18n'
-import type { VersionBranch, VersionFileChange, VersionProvider } from '@shared/types'
+import type {
+  VersionBranch,
+  VersionCommitFile,
+  VersionCommitLog,
+  VersionFileChange,
+  VersionProvider
+} from '@shared/types'
 
 const emit = defineEmits<{
   (event: 'open-diff', payload: { change: VersionFileChange; staged: boolean }): void
@@ -12,6 +18,11 @@ const emit = defineEmits<{
 const versionStore = useVersionControlStore()
 const commitMessage = ref('')
 const newBranchName = ref('')
+
+// Lazily-loaded files per commit, keyed by full hash, plus expand/loading state.
+const commitFilesCache = reactive<Record<string, VersionCommitFile[]>>({})
+const expandedCommits = ref<Set<string>>(new Set())
+const loadingCommit = ref<string | null>(null)
 
 const form = reactive({
   name: '',
@@ -48,6 +59,48 @@ function statusTitle(change: VersionFileChange): string {
   if (label === 'D') return t('version.change.deleted')
   if (label === 'R') return t('version.change.renamed')
   return t('version.change.changed')
+}
+
+function commitFileLabel(file: VersionCommitFile): string {
+  const code = (file.status || 'M').charAt(0).toUpperCase()
+  if (code === 'A') return 'U'
+  if (code === 'D') return 'D'
+  if (code === 'R') return 'R'
+  if (code === 'C') return 'C'
+  return 'M'
+}
+
+function isCommitExpanded(hash: string): boolean {
+  return expandedCommits.value.has(hash)
+}
+
+async function toggleCommit(commit: VersionCommitLog): Promise<void> {
+  const next = new Set(expandedCommits.value)
+  if (next.has(commit.hash)) {
+    next.delete(commit.hash)
+    expandedCommits.value = next
+    return
+  }
+
+  next.add(commit.hash)
+  expandedCommits.value = next
+
+  if (commitFilesCache[commit.hash]) return
+
+  const projectId = currentProjectId()
+  if (!projectId) return
+
+  loadingCommit.value = commit.hash
+  try {
+    commitFilesCache[commit.hash] = await versionStore.loadCommitFiles(projectId, commit.hash)
+  } catch (err) {
+    const revert = new Set(expandedCommits.value)
+    revert.delete(commit.hash)
+    expandedCommits.value = revert
+    ElMessage.error(err instanceof Error ? err.message : String(err))
+  } finally {
+    loadingCommit.value = null
+  }
 }
 
 function currentProjectId(): string | null {
@@ -197,6 +250,9 @@ onMounted(() => {
         <path d="M3 3v4h4" />
         <path d="M3.6 7A5 5 0 1 0 5 3.6" />
         <path d="M8 5.5V8l2 1.3" />
+      </symbol>
+      <symbol id="vc-caret" viewBox="0 0 16 16">
+        <path d="m6 4 4 4-4 4" />
       </symbol>
     </svg>
 
@@ -367,20 +423,48 @@ onMounted(() => {
         <div v-if="!activeStatus.commitHistory.length" class="empty small">
           {{ t('version.noCommitHistory') }}
         </div>
-        <div
-          v-for="commit in activeStatus.commitHistory"
-          :key="commit.hash"
-          class="commit-row"
-          :title="`${commit.hash} ${commit.subject}`"
-        >
-          <svg><use href="#vc-history" /></svg>
-          <div class="commit-content">
-            <div class="commit-subject">{{ commit.subject }}</div>
-            <div class="commit-meta">
-              <span>{{ commit.shortHash }}</span>
-              <span>{{ commit.author }}</span>
-              <span>{{ commit.relativeDate }}</span>
+        <div v-for="commit in activeStatus.commitHistory" :key="commit.hash" class="commit-item">
+          <div
+            class="commit-row"
+            role="button"
+            tabindex="0"
+            :aria-expanded="isCommitExpanded(commit.hash)"
+            :title="`${commit.hash} ${commit.subject}`"
+            @click="toggleCommit(commit)"
+            @keyup.enter="toggleCommit(commit)"
+          >
+            <svg class="commit-caret" :class="{ open: isCommitExpanded(commit.hash) }">
+              <use href="#vc-caret" />
+            </svg>
+            <div class="commit-content">
+              <div class="commit-subject">{{ commit.subject }}</div>
+              <div class="commit-meta">
+                <span>{{ commit.shortHash }}</span>
+                <span>{{ commit.author }}</span>
+                <span>{{ commit.relativeDate }}</span>
+              </div>
             </div>
+          </div>
+          <div v-if="isCommitExpanded(commit.hash)" class="commit-files">
+            <div v-if="loadingCommit === commit.hash" class="empty small">
+              {{ t('version.commitFiles.loading') }}
+            </div>
+            <template v-else>
+              <div v-if="!commitFilesCache[commit.hash]?.length" class="empty small">
+                {{ t('version.commitFiles.empty') }}
+              </div>
+              <div
+                v-for="file in commitFilesCache[commit.hash]"
+                :key="file.path"
+                class="commit-file-row"
+                :title="`${file.status}: ${file.originalPath ? file.originalPath + ' -> ' : ''}${file.path}`"
+              >
+                <span class="status-badge" :data-status="commitFileLabel(file)">
+                  {{ commitFileLabel(file) }}
+                </span>
+                <span class="file-path">{{ file.path }}</span>
+              </div>
+            </template>
           </div>
         </div>
       </details>
@@ -629,6 +713,25 @@ onMounted(() => {
   color: var(--text-dim);
   font-size: 11px;
   white-space: nowrap;
+}
+.commit-caret {
+  transition: transform 0.12s ease;
+}
+.commit-caret.open {
+  transform: rotate(90deg);
+}
+.commit-files {
+  padding: 2px 0 4px;
+}
+.commit-file-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 12px 3px 30px;
+}
+.commit-file-row:hover {
+  background: var(--list-hover);
 }
 .branch-create,
 .add-form {

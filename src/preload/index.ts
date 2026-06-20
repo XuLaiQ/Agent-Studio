@@ -34,12 +34,15 @@ import type {
   VersionConnection,
   VersionBranchInput,
   VersionCommitInput,
+  VersionCommitFile,
+  VersionCommitFilesInput,
   VersionCreateBranchInput,
   VersionFileDiff,
   VersionFileDiffInput,
   VersionFileInput,
   VersionProjectInput,
-  VersionScanResult
+  VersionScanResult,
+  TokenUsageStats
 } from '../shared/types'
 
 const api = {
@@ -92,6 +95,8 @@ const api = {
     ipcRenderer.invoke('version:removeConnection', id),
   diffVersionFile: (input: VersionFileDiffInput): Promise<VersionFileDiff> =>
     ipcRenderer.invoke('version:fileDiff', input),
+  getVersionCommitFiles: (input: VersionCommitFilesInput): Promise<VersionCommitFile[]> =>
+    ipcRenderer.invoke('version:commitFiles', input),
   stageVersionFile: (input: VersionFileInput): Promise<ProjectVersionStatus> =>
     ipcRenderer.invoke('version:stageFile', input),
   unstageVersionFile: (input: VersionFileInput): Promise<ProjectVersionStatus> =>
@@ -112,6 +117,9 @@ const api = {
     ipcRenderer.invoke('version:checkoutBranch', input),
   createVersionBranch: (input: VersionCreateBranchInput): Promise<ProjectVersionStatus> =>
     ipcRenderer.invoke('version:createBranch', input),
+
+  // Token usage statistics
+  getTokenUsageStats: (): Promise<TokenUsageStats> => ipcRenderer.invoke('tokens:stats'),
 
   // PTY control
   startPty: (input: PtyStartInput): void => ipcRenderer.send('pty:start', input),

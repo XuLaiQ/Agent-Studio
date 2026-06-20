@@ -125,6 +125,19 @@ export interface VersionCommitLog {
   relativeDate: string
 }
 
+/** A single file touched by a commit, derived from `git show --name-status`. */
+export interface VersionCommitFile {
+  path: string
+  originalPath?: string
+  /** Single-letter git status: M, A, D, R, C. */
+  status: string
+}
+
+export interface VersionCommitFilesInput {
+  projectId: string
+  hash: string
+}
+
 export interface ProjectVersionStatus {
   projectId: string
   projectName: string
@@ -214,6 +227,40 @@ export interface VersionCreateBranchInput {
   projectId: string
   branch: string
   checkout: boolean
+}
+
+// ---- Token usage statistics (application-level, aggregated across projects) ----
+
+/** Cumulative token usage for a single model under one agent type. */
+export interface ModelTokenUsage {
+  /** Raw model id reported by the CLI transcript, e.g. 'claude-opus-4-8'. */
+  model: string
+  inputTokens: number
+  outputTokens: number
+  cacheCreationTokens: number
+  cacheReadTokens: number
+  /** input + output + cache creation + cache read. */
+  totalTokens: number
+  /** Number of assistant responses that contributed usage. */
+  messageCount: number
+}
+
+/** Token usage for one agent type, broken down by model. */
+export interface AgentTokenUsage {
+  type: AgentType
+  models: ModelTokenUsage[]
+  totalTokens: number
+  /** False when no transcript/usage source is available for this agent type yet. */
+  supported: boolean
+}
+
+/** App-wide token usage snapshot, aggregated across every imported project. */
+export interface TokenUsageStats {
+  agents: AgentTokenUsage[]
+  totalTokens: number
+  /** Number of projects whose transcripts were scanned. */
+  projectCount: number
+  scannedAt: number
 }
 
 /** Command + default args used to launch each agent's CLI. */

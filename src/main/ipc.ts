@@ -7,6 +7,7 @@ import { agentBus } from './agentBus'
 import { taskEngine } from './taskEngine'
 import { orchestrator } from './orchestrator'
 import { listSessions } from './sessionHistory'
+import { collectTokenUsage } from './tokenStats'
 import {
   createFileSystemEntry,
   deleteFileSystemEntry,
@@ -17,6 +18,7 @@ import {
 import {
   checkoutBranch,
   commit,
+  commitFiles,
   createBranch,
   diffFile,
   fetchProject,
@@ -47,6 +49,7 @@ import type {
   SessionListInput,
   VersionBranchInput,
   VersionCommitInput,
+  VersionCommitFilesInput,
   VersionCreateBranchInput,
   VersionFileDiffInput,
   VersionFileInput,
@@ -203,6 +206,7 @@ export function registerIpc(): void {
     return store.getVersionConnections()
   })
   ipcMain.handle('version:fileDiff', (_e, input: VersionFileDiffInput) => diffFile(input))
+  ipcMain.handle('version:commitFiles', (_e, input: VersionCommitFilesInput) => commitFiles(input))
   ipcMain.handle('version:stageFile', (_e, input: VersionFileInput) => stageFile(input))
   ipcMain.handle('version:unstageFile', (_e, input: VersionFileInput) => unstageFile(input))
   ipcMain.handle('version:stageAll', (_e, input: VersionProjectInput) => stageAll(input))
@@ -217,6 +221,8 @@ export function registerIpc(): void {
   ipcMain.handle('version:createBranch', (_e, input: VersionCreateBranchInput) =>
     createBranch(input)
   )
+
+  ipcMain.handle('tokens:stats', () => collectTokenUsage())
 
   // ---- PTY / terminal ----
   ipcMain.on('pty:start', (event, input: PtyStartInput) => {
