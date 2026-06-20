@@ -133,7 +133,15 @@ async function closeAllAgents(): Promise<void> {
 <template>
   <div class="workspace">
     <div v-if="!store.activeProject" class="placeholder">
-      <div class="big">*</div>
+      <svg class="big" viewBox="0 0 64 64" aria-hidden="true">
+        <path
+          d="M32 10v44M10 32h44M16.5 16.5l31 31M47.5 16.5l-31 31"
+          fill="none"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-width="4"
+        />
+      </svg>
       <p>{{ t('workspace.placeholder') }}</p>
     </div>
 
@@ -147,9 +155,18 @@ async function closeAllAgents(): Promise<void> {
           <el-button size="small" type="danger" plain :disabled="!store.agents.length" @click="closeAllAgents">
             {{ t('agent.closeAll.button') }}
           </el-button>
-          <el-button size="small" type="primary" @click="dialog?.open()">{{
-            t('workspace.addAgent')
-          }}</el-button>
+          <el-button size="small" type="primary" @click="dialog?.open()">
+            <svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true">
+              <path
+                d="M8 3.5v9M3.5 8h9"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-width="1.5"
+              />
+            </svg>
+            <span>{{ t('workspace.addAgent') }}</span>
+          </el-button>
         </div>
       </div>
 
@@ -185,7 +202,16 @@ async function closeAllAgents(): Promise<void> {
               @dragend="dragged = null"
             >
               <div class="terminal-title">
-                <span class="drag-handle" title="Drag">::</span>
+                <span class="drag-handle" title="Drag">
+                  <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <circle cx="5.5" cy="4.5" r="1" fill="currentColor" />
+                    <circle cx="10.5" cy="4.5" r="1" fill="currentColor" />
+                    <circle cx="5.5" cy="8" r="1" fill="currentColor" />
+                    <circle cx="10.5" cy="8" r="1" fill="currentColor" />
+                    <circle cx="5.5" cy="11.5" r="1" fill="currentColor" />
+                    <circle cx="10.5" cy="11.5" r="1" fill="currentColor" />
+                  </svg>
+                </span>
                 <span class="dot" :style="{ background: statusColor[store.statusOf(agent.id)] }" />
                 <span class="terminal-name">{{ agent.name }}</span>
                 <span class="terminal-type">{{ AGENT_COMMANDS[agent.type].label }}</span>
@@ -237,7 +263,8 @@ async function closeAllAgents(): Promise<void> {
   gap: 8px;
 }
 .big {
-  font-size: 56px;
+  width: var(--app-font-size-hero);
+  height: var(--app-font-size-hero);
   color: var(--text-muted);
   opacity: 0.45;
 }
@@ -266,13 +293,18 @@ async function closeAllAgents(): Promise<void> {
 }
 .workspace-title span:last-child {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
 }
 .workspace-actions {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 6px;
+}
+.button-icon {
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
 }
 .project-terminal-stage {
   flex: 1;
@@ -356,9 +388,13 @@ async function closeAllAgents(): Promise<void> {
 }
 .drag-handle {
   flex: 0 0 auto;
+  display: grid;
+  place-items: center;
   color: var(--text-dim);
-  font-size: 11px;
-  letter-spacing: -1px;
+}
+.drag-handle svg {
+  width: 14px;
+  height: 14px;
 }
 .dot {
   flex: 0 0 auto;
@@ -375,7 +411,7 @@ async function closeAllAgents(): Promise<void> {
 }
 .terminal-type {
   flex: 0 0 auto;
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   color: var(--text-dim);
 }
 .close {

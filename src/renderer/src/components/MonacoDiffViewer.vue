@@ -7,6 +7,7 @@ import {
   languageForFile,
   monaco
 } from './monaco/setup'
+import { useSettingsStore } from '../stores/settings'
 
 const props = defineProps<{
   original: string
@@ -15,6 +16,7 @@ const props = defineProps<{
 }>()
 
 const host = ref<HTMLDivElement>()
+const settings = useSettingsStore()
 let editor: monaco.editor.IStandaloneDiffEditor | null = null
 let originalModel: monaco.editor.ITextModel | null = null
 let modifiedModel: monaco.editor.ITextModel | null = null
@@ -51,8 +53,8 @@ onMounted(() => {
     automaticLayout: false,
     renderSideBySide: true,
     fontFamily: 'Consolas, "Cascadia Mono", "Courier New", monospace',
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: settings.terminalFontSize,
+    lineHeight: settings.terminalFontSize + 7,
     lineNumbers: 'on',
     minimap: { enabled: false },
     scrollBeyondLastLine: false,
@@ -72,6 +74,14 @@ watch(
     if (!editor) return
     disposeModels()
     buildModels()
+  }
+)
+
+watch(
+  () => settings.terminalFontSize,
+  (fontSize) => {
+    editor?.updateOptions({ fontSize, lineHeight: fontSize + 7 })
+    editor?.layout()
   }
 )
 

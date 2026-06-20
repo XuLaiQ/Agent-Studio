@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useVersionControlStore } from '../stores/versionControl'
@@ -573,7 +573,7 @@ onMounted(() => {
   background: transparent;
   color: var(--text-dim);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -646,7 +646,7 @@ onMounted(() => {
 .connection-url,
 .branch-row small {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
 }
 .empty {
   padding: 9px 12px;
@@ -688,7 +688,7 @@ onMounted(() => {
 .details summary,
 .group-head {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.35px;
   text-transform: uppercase;
@@ -768,7 +768,7 @@ onMounted(() => {
   min-width: 0;
   overflow: hidden;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   white-space: nowrap;
 }
 .commit-branches {
@@ -790,7 +790,7 @@ onMounted(() => {
   padding: 2px 6px;
   border: 1px solid;
   border-radius: 2px;
-  font-size: 10px;
+  font-size: var(--app-font-size-xxs);
   font-weight: 700;
   line-height: 1.2;
   overflow-wrap: anywhere;
@@ -833,7 +833,7 @@ onMounted(() => {
   flex: 0 0 18px;
   width: 18px;
   color: var(--warning);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-weight: 700;
   text-align: center;
 }

@@ -131,7 +131,12 @@ const runForThisWorkflow = computed(() =>
   <div class="workflow-panel">
     <div class="wf-head">
       <span class="wf-title">{{ t('workflow.title') }}</span>
-      <button class="wf-new" type="button" @click="newWorkflow">{{ t('workflow.new') }}</button>
+      <button class="wf-new" type="button" @click="newWorkflow">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" />
+        </svg>
+        <span>{{ t('workflow.new') }}</span>
+      </button>
     </div>
 
     <div v-if="!store.activeProject" class="wf-empty">{{ t('workflow.noProject') }}</div>
@@ -169,15 +174,21 @@ const runForThisWorkflow = computed(() =>
               </option>
             </select>
             <div class="wf-step-actions">
-              <button type="button" :disabled="index === 0" @click="moveStep(index, -1)">↑</button>
-              <button
-                type="button"
-                :disabled="index === draftSteps.length - 1"
-                @click="moveStep(index, 1)"
-              >
-                ↓
+              <button type="button" :disabled="index === 0" @click="moveStep(index, -1)">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M8 3.5v9M4.5 7 8 3.5 11.5 7" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.4" />
+                </svg>
               </button>
-              <button type="button" @click="removeStep(index)">✕</button>
+              <button type="button" :disabled="index === draftSteps.length - 1" @click="moveStep(index, 1)">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M8 3.5v9M4.5 9 8 12.5 11.5 9" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.4" />
+                </svg>
+              </button>
+              <button type="button" @click="removeStep(index)">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M4.5 4.5 11.5 11.5M11.5 4.5 4.5 11.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" />
+                </svg>
+              </button>
             </div>
           </div>
           <textarea
@@ -188,7 +199,12 @@ const runForThisWorkflow = computed(() =>
           />
         </div>
 
-        <button class="wf-add" type="button" @click="addStep">{{ t('workflow.addStep') }}</button>
+        <button class="wf-add" type="button" @click="addStep">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" />
+          </svg>
+          <span>{{ t('workflow.addStep') }}</span>
+        </button>
 
         <div class="wf-editor-actions">
           <button class="wf-btn" type="button" :disabled="!canSave" @click="save">
@@ -259,28 +275,37 @@ const runForThisWorkflow = computed(() =>
   border-bottom: 1px solid var(--border);
 }
 .wf-title {
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-dim);
 }
 .wf-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   border: 1px solid var(--border);
   border-radius: 3px;
   background: transparent;
   color: var(--accent-hover);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   padding: 2px 8px;
 }
 .wf-new:hover {
   border-color: var(--accent-hover);
 }
+.wf-new svg,
+.wf-add svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
 .wf-empty {
   padding: 16px 12px;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .wf-list {
   margin: 0;
@@ -295,7 +320,7 @@ const runForThisWorkflow = computed(() =>
   padding: 6px 8px;
   border-radius: 3px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .wf-list li:hover {
   background: rgba(157, 116, 255, 0.12);
@@ -305,7 +330,7 @@ const runForThisWorkflow = computed(() =>
 }
 .wf-list-count {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
 }
 .wf-editor {
   padding: 8px;
@@ -320,7 +345,7 @@ const runForThisWorkflow = computed(() =>
   border-radius: 3px;
   background: rgba(10, 10, 15, 0.6);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   outline: none;
 }
 .wf-input:focus {
@@ -346,7 +371,7 @@ const runForThisWorkflow = computed(() =>
 }
 .wf-step-index {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   width: 14px;
 }
 .wf-select {
@@ -357,7 +382,7 @@ const runForThisWorkflow = computed(() =>
   border-radius: 3px;
   background: rgba(10, 10, 15, 0.6);
   color: var(--text);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
 }
 .wf-step-actions {
   display: flex;
@@ -366,13 +391,19 @@ const runForThisWorkflow = computed(() =>
 .wf-step-actions button {
   width: 20px;
   height: 20px;
+  display: grid;
+  place-items: center;
   border: 1px solid var(--border);
   border-radius: 2px;
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   line-height: 1;
+}
+.wf-step-actions svg {
+  width: 13px;
+  height: 13px;
 }
 .wf-step-actions button:disabled {
   opacity: 0.35;
@@ -391,7 +422,7 @@ const runForThisWorkflow = computed(() =>
   background: rgba(10, 10, 15, 0.6);
   color: var(--text);
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   outline: none;
 }
 .wf-prompt:focus {
@@ -399,12 +430,15 @@ const runForThisWorkflow = computed(() =>
 }
 .wf-add {
   align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   border: 1px dashed var(--border);
   border-radius: 3px;
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   padding: 4px 10px;
 }
 .wf-add:hover {
@@ -423,7 +457,7 @@ const runForThisWorkflow = computed(() =>
   background: rgba(22, 22, 31, 0.9);
   color: var(--text);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   padding: 5px 12px;
 }
 .wf-btn:hover:not(:disabled) {
@@ -454,7 +488,7 @@ const runForThisWorkflow = computed(() =>
   align-items: center;
   gap: 8px;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .wf-idle {
   width: 56px;
@@ -463,11 +497,11 @@ const runForThisWorkflow = computed(() =>
   border-radius: 3px;
   background: rgba(10, 10, 15, 0.6);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .wf-run-status {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   color: var(--text-dim);
 }
 .wf-run-status.done {

@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { ElMessage } from 'element-plus'
 import { t } from '../i18n'
 import { useStudioStore } from '../stores/studio'
+import { useSettingsStore } from '../stores/settings'
 import { AGENT_MODELS, liveModelCommand, type Agent, type SessionSummary } from '@shared/types'
 
 const props = defineProps<{ agent: Agent; projectPath: string }>()
 
 const store = useStudioStore()
+const settings = useSettingsStore()
 
 const host = ref<HTMLDivElement>()
 let term: Terminal | null = null
@@ -161,7 +163,7 @@ onMounted(() => {
 
   term = new Terminal({
     fontFamily: 'Consolas, "Cascadia Mono", "Courier New", monospace',
-    fontSize: 13,
+    fontSize: settings.terminalFontSize,
     cursorBlink: true,
     allowProposedApi: true,
     theme: {
@@ -210,6 +212,17 @@ onMounted(() => {
 
   resizeObserver = new ResizeObserver(() => doFit())
   resizeObserver.observe(host.value)
+
+  cleanups.push(
+    watch(
+      () => settings.terminalFontSize,
+      (fontSize) => {
+        if (!term) return
+        term.options.fontSize = fontSize
+        doFit()
+      }
+    )
+  )
 
   document.addEventListener('click', closePopovers)
 
@@ -296,13 +309,20 @@ function copySelection(event: MouseEvent): void {
               class="history-refresh"
               type="button"
               :title="t('terminal.historyRefresh')"
+              :aria-label="t('terminal.historyRefresh')"
               @click="loadSessions"
             >
-              {{ t('terminal.historyRefresh') }}
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M12.8 4.2v3h-3M12.2 7.2A4.4 4.4 0 1 0 12.7 10" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.4" />
+              </svg>
             </button>
           </div>
           <ul class="history-list">
-            <li v-if="historyLoading" class="history-empty">…</li>
+            <li v-if="historyLoading" class="history-empty">
+              <svg class="loading-icon" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M13 8a5 5 0 1 1-1.5-3.6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" />
+              </svg>
+            </li>
             <li v-else-if="!sessions.length" class="history-empty">
               {{ t('terminal.historyEmpty') }}
             </li>
@@ -427,7 +447,7 @@ function copySelection(event: MouseEvent): void {
   background: rgba(22, 22, 31, 0.9);
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   line-height: 1;
 }
 .tool-btn:hover {
@@ -465,7 +485,7 @@ function copySelection(event: MouseEvent): void {
   border-radius: 2px;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   white-space: nowrap;
 }
 .model-popover li:hover {
@@ -490,15 +510,22 @@ function copySelection(event: MouseEvent): void {
   padding: 7px 10px;
   border-bottom: 1px solid var(--border);
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
 }
 .history-refresh {
   border: none;
   background: none;
   color: var(--accent-hover);
   cursor: pointer;
-  font-size: 11px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
   padding: 0;
+}
+.history-refresh svg {
+  width: 14px;
+  height: 14px;
 }
 .history-list {
   margin: 0;
@@ -512,7 +539,7 @@ function copySelection(event: MouseEvent): void {
   border-radius: 2px;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -525,7 +552,17 @@ function copySelection(event: MouseEvent): void {
   padding: 12px 8px;
   text-align: center;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
+}
+.loading-icon {
+  width: 16px;
+  height: 16px;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Forward (Agent Bus) */
@@ -545,7 +582,7 @@ function copySelection(event: MouseEvent): void {
   background: rgba(10, 10, 15, 0.9);
   color: var(--text);
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   outline: none;
 }
 .forward-input:focus {
@@ -553,7 +590,7 @@ function copySelection(event: MouseEvent): void {
 }
 .forward-head {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   padding: 0 2px;
 }
 .forward-list {
@@ -568,7 +605,7 @@ function copySelection(event: MouseEvent): void {
   border-radius: 2px;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -581,7 +618,7 @@ function copySelection(event: MouseEvent): void {
   padding: 10px 8px;
   text-align: center;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .forward-broadcast {
   width: 100%;
@@ -591,7 +628,7 @@ function copySelection(event: MouseEvent): void {
   background: rgba(157, 116, 255, 0.16);
   color: var(--text);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .forward-broadcast:hover {
   background: rgba(157, 116, 255, 0.28);

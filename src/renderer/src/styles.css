@@ -27,6 +27,15 @@
   --scrollbar-track: transparent;
   --scrollbar-thumb: rgba(161, 161, 170, 0.28);
   --scrollbar-thumb-hover: rgba(157, 116, 255, 0.58);
+  --app-font-size-xxs: 10px;
+  --app-font-size-xs: 11px;
+  --app-font-size-sm: 12px;
+  --app-font-size-base: 13px;
+  --app-font-size-md: 14px;
+  --app-font-size-lg: 17px;
+  --app-font-size-xl: 20px;
+  --app-font-size-xxl: 26px;
+  --app-font-size-hero: 56px;
 }
 
 * {
@@ -48,7 +57,7 @@ body {
   font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--app-font-size-base);
   -webkit-font-smoothing: antialiased;
 }
 

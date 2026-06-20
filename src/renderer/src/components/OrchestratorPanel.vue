@@ -174,7 +174,7 @@ function generate(): void {
   border-bottom: 1px solid var(--border);
 }
 .orch-title {
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -186,7 +186,7 @@ function generate(): void {
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   padding: 2px 8px;
 }
 .orch-reset:disabled {
@@ -196,7 +196,7 @@ function generate(): void {
 .orch-empty {
   padding: 16px 12px;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .orch-goal {
   padding: 8px;
@@ -213,7 +213,7 @@ function generate(): void {
   background: rgba(10, 10, 15, 0.6);
   color: var(--text);
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   outline: none;
 }
 .orch-input:focus {
@@ -223,7 +223,7 @@ function generate(): void {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   color: var(--text-dim);
 }
 .orch-type-row label {
@@ -237,7 +237,7 @@ function generate(): void {
   border-radius: 3px;
   background: rgba(10, 10, 15, 0.6);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .orch-type-select:disabled {
   opacity: 0.5;
@@ -248,7 +248,7 @@ function generate(): void {
   background: rgba(22, 22, 31, 0.9);
   color: var(--text);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   padding: 6px 12px;
 }
 .orch-btn:hover:not(:disabled) {
@@ -270,12 +270,12 @@ function generate(): void {
 .orch-error {
   margin: 0 8px;
   color: var(--danger);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .orch-hint {
   margin: 0 8px;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .orch-plan {
   padding: 8px;
@@ -285,7 +285,7 @@ function generate(): void {
   border-top: 1px solid var(--border);
 }
 .orch-goal-line {
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   font-weight: 600;
   color: var(--text);
 }
@@ -315,11 +315,11 @@ function generate(): void {
   flex: 0 0 auto;
 }
 .orch-role {
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   font-weight: 600;
 }
 .orch-type {
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   color: var(--text-dim);
 }
 .orch-node-retry {
@@ -329,18 +329,18 @@ function generate(): void {
   background: transparent;
   color: var(--accent-hover);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   padding: 1px 6px;
 }
 .orch-task {
   margin: 5px 0 0;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   color: var(--text-dim);
   white-space: pre-wrap;
 }
 .orch-deps {
   margin: 4px 0 0;
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   color: var(--text-muted);
 }
 .orch-actions {
@@ -355,7 +355,7 @@ function generate(): void {
   align-items: center;
   gap: 8px;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .orch-idle input {
   width: 56px;
@@ -364,7 +364,7 @@ function generate(): void {
   border-radius: 3px;
   background: rgba(10, 10, 15, 0.6);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .orch-actions-row {
   display: flex;
@@ -372,7 +372,7 @@ function generate(): void {
 }
 .orch-run-status {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   color: var(--text-dim);
 }
 .orch-run-status.done {

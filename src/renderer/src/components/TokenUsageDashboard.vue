@@ -4,10 +4,12 @@ import { ElMessage } from 'element-plus'
 import type { EChartsCoreOption } from 'echarts/core'
 import EChart from './EChart.vue'
 import { useTokenStatsStore } from '../stores/tokenStats'
+import { useSettingsStore } from '../stores/settings'
 import { t } from '../i18n'
 import { AGENT_COMMANDS, type AgentType, type ModelTokenUsage } from '@shared/types'
 
 const tokenStore = useTokenStatsStore()
+const settings = useSettingsStore()
 const stats = computed(() => tokenStore.stats)
 
 // ---- Theme constants (echarts canvas can't read CSS variables) ----
@@ -22,11 +24,13 @@ const SEG = {
   cacheWrite: '#f59e0b',
   cacheRead: '#3b82f6'
 }
-const tooltipBase = {
+const chartFontXs = computed(() => Math.max(10, settings.fontSizePx - 2))
+const chartFontBase = computed(() => settings.fontSizePx)
+const tooltipBase = computed(() => ({
   backgroundColor: CARD_BG,
   borderColor: SPLIT,
-  textStyle: { color: TEXT, fontSize: 12 }
-}
+  textStyle: { color: TEXT, fontSize: chartFontXs.value }
+}))
 
 interface ModelRow extends ModelTokenUsage {
   type: AgentType
@@ -86,7 +90,7 @@ const modelShareOption = computed<EChartsCoreOption>(() => ({
   color: PALETTE,
   tooltip: {
     trigger: 'item',
-    ...tooltipBase,
+    ...tooltipBase.value,
     formatter: (p: { name: string; value: number; percent: number; marker: string }) =>
       `${p.marker}${p.name}<br/><b>${p.value.toLocaleString()}</b> (${p.percent}%)`
   },
@@ -94,7 +98,7 @@ const modelShareOption = computed<EChartsCoreOption>(() => ({
     type: 'scroll',
     bottom: 0,
     icon: 'circle',
-    textStyle: { color: AXIS, fontSize: 11 },
+    textStyle: { color: AXIS, fontSize: chartFontXs.value },
     pageTextStyle: { color: AXIS }
   },
   series: [
@@ -107,7 +111,7 @@ const modelShareOption = computed<EChartsCoreOption>(() => ({
       itemStyle: { borderColor: CARD_BG, borderWidth: 2, borderRadius: 4 },
       label: { show: false },
       emphasis: {
-        label: { show: true, color: TEXT, fontSize: 13, fontWeight: 'bold', formatter: '{b}' }
+        label: { show: true, color: TEXT, fontSize: chartFontBase.value, fontWeight: 'bold', formatter: '{b}' }
       },
       data: models.value.map((m) => ({ name: m.short, value: m.totalTokens }))
     }
@@ -124,7 +128,7 @@ const compositionOption = computed<EChartsCoreOption>(() => {
   return {
     tooltip: {
       trigger: 'item',
-      ...tooltipBase,
+      ...tooltipBase.value,
       formatter: (p: { name: string; value: number; percent: number; marker: string }) =>
         `${p.marker}${p.name}<br/><b>${p.value.toLocaleString()}</b> (${p.percent}%)`
     },
@@ -132,7 +136,7 @@ const compositionOption = computed<EChartsCoreOption>(() => {
       type: 'scroll',
       bottom: 0,
       icon: 'circle',
-      textStyle: { color: AXIS, fontSize: 11 }
+      textStyle: { color: AXIS, fontSize: chartFontXs.value }
     },
     series: [
       {
@@ -143,7 +147,7 @@ const compositionOption = computed<EChartsCoreOption>(() => {
         itemStyle: { borderColor: CARD_BG, borderWidth: 2, borderRadius: 4 },
         label: { show: false },
         emphasis: {
-          label: { show: true, color: TEXT, fontSize: 13, fontWeight: 'bold', formatter: '{b}' }
+          label: { show: true, color: TEXT, fontSize: chartFontBase.value, fontWeight: 'bold', formatter: '{b}' }
         },
         data: data.map((d) => ({ name: d.name, value: d.value, itemStyle: { color: d.color } }))
       }
@@ -175,21 +179,21 @@ const byModelBarOption = computed<EChartsCoreOption>(() => {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
-      ...tooltipBase,
+      ...tooltipBase.value,
       valueFormatter: (v: number) => Number(v).toLocaleString()
     },
-    legend: { top: 0, icon: 'roundRect', itemHeight: 9, textStyle: { color: AXIS, fontSize: 11 } },
+    legend: { top: 0, icon: 'roundRect', itemHeight: 9, textStyle: { color: AXIS, fontSize: chartFontXs.value } },
     grid: { left: 8, right: 18, top: 38, bottom: 6, containLabel: true },
     xAxis: {
       type: 'value',
-      axisLabel: { color: AXIS, fontSize: 11, formatter: (v: number) => formatTokens(v) },
+      axisLabel: { color: AXIS, fontSize: chartFontXs.value, formatter: (v: number) => formatTokens(v) },
       axisLine: { lineStyle: { color: SPLIT } },
       splitLine: { lineStyle: { color: SPLIT, type: 'dashed' } }
     },
     yAxis: {
       type: 'category',
       data: names,
-      axisLabel: { color: AXIS, fontSize: 11 },
+      axisLabel: { color: AXIS, fontSize: chartFontXs.value },
       axisLine: { lineStyle: { color: SPLIT } },
       axisTick: { show: false }
     },
@@ -202,20 +206,20 @@ const byAgentOption = computed<EChartsCoreOption>(() => ({
   tooltip: {
     trigger: 'axis',
     axisPointer: { type: 'shadow' },
-    ...tooltipBase,
+    ...tooltipBase.value,
     valueFormatter: (v: number) => Number(v).toLocaleString()
   },
   grid: { left: 8, right: 18, top: 16, bottom: 6, containLabel: true },
   xAxis: {
     type: 'category',
     data: agentTotals.value.map((a) => a.label),
-    axisLabel: { color: AXIS, fontSize: 11 },
+    axisLabel: { color: AXIS, fontSize: chartFontXs.value },
     axisLine: { lineStyle: { color: SPLIT } },
     axisTick: { show: false }
   },
   yAxis: {
     type: 'value',
-    axisLabel: { color: AXIS, fontSize: 11, formatter: (v: number) => formatTokens(v) },
+    axisLabel: { color: AXIS, fontSize: chartFontXs.value, formatter: (v: number) => formatTokens(v) },
     axisLine: { lineStyle: { color: SPLIT } },
     splitLine: { lineStyle: { color: SPLIT, type: 'dashed' } }
   },
@@ -386,13 +390,13 @@ onMounted(() => {
 }
 .dash-title h1 {
   margin: 0;
-  font-size: 17px;
+  font-size: var(--app-font-size-lg);
   font-weight: 700;
   color: var(--text);
 }
 .dash-title p {
   margin: 3px 0 0;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   color: var(--text-dim);
 }
 .refresh-btn {
@@ -406,7 +410,7 @@ onMounted(() => {
   background: var(--bg-panel);
   color: var(--text);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   cursor: pointer;
 }
 .refresh-btn:hover:not(:disabled) {
@@ -427,7 +431,7 @@ onMounted(() => {
   place-items: center;
   padding: 40px;
   color: var(--text-dim);
-  font-size: 13px;
+  font-size: var(--app-font-size-base);
 }
 .dash-body {
   flex: 1;
@@ -457,21 +461,21 @@ onMounted(() => {
   background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(139, 92, 246, 0.04));
 }
 .kpi-label {
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.4px;
   text-transform: uppercase;
   color: var(--text-dim);
 }
 .kpi-value {
-  font-size: 26px;
+  font-size: var(--app-font-size-xxl);
   font-weight: 700;
   line-height: 1.1;
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 .kpi-sub {
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -492,7 +496,7 @@ onMounted(() => {
 .chart-card h2,
 .table-card h2 {
   margin: 0 0 10px;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   font-weight: 600;
   letter-spacing: 0.3px;
   text-transform: uppercase;
@@ -514,7 +518,7 @@ onMounted(() => {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   font-variant-numeric: tabular-nums;
 }
 th,
@@ -527,7 +531,7 @@ td {
 th {
   color: var(--text-dim);
   font-weight: 600;
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }

@@ -179,7 +179,7 @@ onMounted(() => {
 }
 .section-title {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -226,18 +226,18 @@ onMounted(() => {
 }
 .summary-value {
   color: var(--text);
-  font-size: 20px;
+  font-size: var(--app-font-size-xl);
   font-weight: 700;
 }
 .summary-label {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
 .summary-meta {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
 }
 .legend {
   display: flex;
@@ -250,7 +250,7 @@ onMounted(() => {
   align-items: center;
   gap: 5px;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
 }
 .legend-swatch {
   width: 10px;
@@ -260,12 +260,12 @@ onMounted(() => {
 .empty {
   padding: 12px;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   line-height: 1.4;
 }
 .empty.small {
   padding: 4px 12px 8px;
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
 }
 .agent-group {
   margin-top: 6px;
@@ -280,12 +280,12 @@ onMounted(() => {
 }
 .agent-name {
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   font-weight: 600;
 }
 .agent-total {
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-variant-numeric: tabular-nums;
 }
 .model-row {
@@ -305,12 +305,12 @@ onMounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .model-total {
   flex: 0 0 auto;
   color: var(--text);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -337,7 +337,7 @@ onMounted(() => {
   gap: 4px 10px;
   margin-top: 5px;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-variant-numeric: tabular-nums;
 }
 </style>

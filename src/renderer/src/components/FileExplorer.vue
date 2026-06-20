@@ -444,13 +444,13 @@ export default {
   font-weight: 600;
   color: var(--text-dim);
   text-transform: uppercase;
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   letter-spacing: 0.5px;
 }
 .empty {
   color: var(--text-dim);
   padding: 8px 12px;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .tree {
   list-style: none;

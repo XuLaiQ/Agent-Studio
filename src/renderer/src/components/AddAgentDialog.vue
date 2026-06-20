@@ -83,11 +83,11 @@ defineExpose({ open })
 }
 .card-label {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--app-font-size-md);
   margin-bottom: 4px;
 }
 .card-cmd {
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   color: var(--text-dim);
 }
 .name-input {

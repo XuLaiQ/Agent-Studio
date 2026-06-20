@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useStudioStore } from './stores/studio'
+import { useSettingsStore } from './stores/settings'
 import ProjectSidebar from './components/ProjectSidebar.vue'
 import FileExplorer from './components/FileExplorer.vue'
 import VersionControlPanel from './components/VersionControlPanel.vue'
@@ -29,6 +30,7 @@ interface Tab {
 }
 
 const store = useStudioStore()
+const settings = useSettingsStore()
 const leftWidth = ref(Number(localStorage.getItem('agent-studio.leftWidth')) || 300)
 const tabs = ref<Tab[]>([])
 const activeTabPath = ref<string | null>(null)
@@ -38,7 +40,10 @@ const activeWorkspace = ref<'agents' | 'preview'>('agents')
 const sidebarView = ref<
   'explorer' | 'sourceControl' | 'workflow' | 'orchestrator' | 'tokens'
 >('explorer')
+const settingsOpen = ref(false)
 let resizing = false
+
+const appStyle = computed(() => settings.cssVars)
 
 function clampLeftWidth(width: number): number {
   const max = Math.max(280, window.innerWidth - 560)
@@ -225,7 +230,7 @@ watch(
 
 <template>
   <el-config-provider :locale="elementLocale">
-    <div class="app-shell">
+    <div class="app-shell" :style="appStyle">
       <header class="header">
         <span class="logo">Agent Studio</span>
         <span class="subtitle">{{ t('app.subtitle') }}</span>
@@ -248,6 +253,7 @@ watch(
 
       <div class="body">
         <nav class="activity-bar" aria-label="Workbench">
+          <div class="activity-main">
           <button
             type="button"
             class="activity-item"
@@ -339,6 +345,52 @@ watch(
               <rect x="16.5" y="4" width="4" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="1.6" />
             </svg>
           </button>
+          </div>
+          <div class="activity-bottom">
+            <button
+              type="button"
+              class="activity-item"
+              :class="{ active: settingsOpen }"
+              :title="t('settings.title')"
+              @click.stop="settingsOpen = !settingsOpen"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="3"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                />
+                <path
+                  d="M12 3.5v2M12 18.5v2M5.9 5.9l1.4 1.4M16.7 16.7l1.4 1.4M3.5 12h2M18.5 12h2M5.9 18.1l1.4-1.4M16.7 7.3l1.4-1.4"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-width="1.6"
+                />
+              </svg>
+            </button>
+            <section v-if="settingsOpen" class="settings-popover" @click.stop>
+              <header class="settings-head">{{ t('settings.title') }}</header>
+              <div class="settings-row">
+                <label for="font-size-px">{{ t('settings.fontSize') }}</label>
+                <el-input-number
+                  id="font-size-px"
+                  :model-value="settings.fontSizePx"
+                  :min="settings.minFontSize"
+                  :max="settings.maxFontSize"
+                  :step="1"
+                  :controls="true"
+                  size="small"
+                  class="settings-number"
+                  controls-position="right"
+                  @update:model-value="settings.setFontSizePx"
+                />
+              </div>
+            </section>
+          </div>
         </nav>
 
         <aside class="left" :style="{ width: `${leftWidth}px` }">
@@ -418,7 +470,7 @@ watch(
                   :title="t('common.close')"
                   aria-label="Close tab"
                 >
-                  ✕
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5 11.5 11.5M11.5 4.5 4.5 11.5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.5" /></svg>
                 </button>
               </div>
             </div>
@@ -476,12 +528,12 @@ watch(
 }
 .logo {
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   font-weight: 600;
 }
 .subtitle {
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .spacer {
   flex: 1;
@@ -501,9 +553,19 @@ watch(
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 6px;
+  justify-content: space-between;
+  padding: 6px 0;
   background: var(--activity-bg);
   border-right: 1px solid var(--border);
+}
+.activity-main,
+.activity-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.activity-bottom {
+  position: relative;
 }
 .activity-item {
   position: relative;
@@ -532,6 +594,35 @@ watch(
   bottom: 8px;
   width: 2px;
   background: var(--accent);
+}
+.settings-popover {
+  position: absolute;
+  left: 52px;
+  bottom: 0;
+  z-index: 30;
+  width: 220px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(18, 18, 26, 0.98);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45);
+}
+.settings-head {
+  margin-bottom: 10px;
+  color: var(--text);
+  font-size: var(--app-font-size-sm);
+  font-weight: 600;
+}
+.settings-row {
+  display: grid;
+  gap: 6px;
+}
+.settings-row label {
+  color: var(--text-dim);
+  font-size: var(--app-font-size-xs);
+}
+.settings-number {
+  width: 100%;
 }
 .left {
   min-width: 240px;
@@ -690,10 +781,13 @@ watch(
   color: currentColor;
   cursor: pointer;
   border-radius: 2px;
-  font-size: 12px;
   line-height: 1;
   opacity: 0.6;
   transition: opacity 0.15s;
+}
+.tab-close svg {
+  width: 14px;
+  height: 14px;
 }
 .tab-close:hover {
   opacity: 1;

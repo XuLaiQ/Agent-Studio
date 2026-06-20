@@ -197,7 +197,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--text-dim);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-weight: 500;
 }
 .status-pill.staged {
@@ -208,7 +208,7 @@ onBeforeUnmount(() => {
   max-width: 68vw;
   overflow: hidden;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

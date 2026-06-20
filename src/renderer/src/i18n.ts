@@ -24,9 +24,11 @@ const messages: Record<Locale, Dict> = {
   en: {
     'app.subtitle': 'Multi-agent CLI workspace',
     'lang.label': 'Language',
+    'settings.title': 'Settings',
+    'settings.fontSize': 'Font size',
 
     'projects.title': 'Projects',
-    'projects.import': '+ Import',
+    'projects.import': 'Import',
     'projects.empty.line1': 'No projects yet.',
     'projects.empty.line2': 'Click {action} to add a folder.',
     'projects.remove.title': 'Remove project',
@@ -173,7 +175,7 @@ const messages: Record<Locale, Dict> = {
     'workspace.agentsTab': 'Agents',
     'workspace.previewTab': 'Preview',
     'workspace.noAgents': 'No agents yet. Click {action} to launch a CLI.',
-    'workspace.addAgent': '+ Add Agent',
+    'workspace.addAgent': 'Add Agent',
     'agent.close.title': 'Close agent',
     'agent.close.confirm': 'Close agent "{name}"?',
     'agent.close.button': 'Close',
@@ -201,11 +203,11 @@ const messages: Record<Locale, Dict> = {
     'terminal.forward.noTarget': 'No target received it (none running)',
 
     'workflow.title': 'Workflows',
-    'workflow.new': '+ New',
+    'workflow.new': 'New',
     'workflow.noProject': 'Select a project to build a workflow.',
     'workflow.namePlaceholder': 'Workflow name',
     'workflow.promptPlaceholder': 'Instruction for this agent…',
-    'workflow.addStep': '+ Add step',
+    'workflow.addStep': 'Add step',
     'workflow.save': 'Save',
     'workflow.saved': 'Workflow saved',
     'workflow.delete': 'Delete',
@@ -254,7 +256,7 @@ const messages: Record<Locale, Dict> = {
     'lang.label': '语言',
 
     'projects.title': '项目',
-    'projects.import': '+ 导入',
+    'projects.import': '导入',
     'projects.empty.line1': '暂无项目。',
     'projects.empty.line2': '点击 {action} 添加文件夹。',
     'projects.remove.title': '移除项目',
@@ -270,7 +272,7 @@ const messages: Record<Locale, Dict> = {
 
     'workspace.placeholder': '从左侧导入一个项目开始使用。',
     'workspace.noAgents': '暂无智能体。点击 {action} 启动一个 CLI。',
-    'workspace.addAgent': '+ 添加智能体',
+    'workspace.addAgent': '添加智能体',
     'agent.close.title': '关闭智能体',
     'agent.close.confirm': '关闭智能体「{name}」？',
     'agent.close.button': '关闭',
@@ -295,11 +297,11 @@ const messages: Record<Locale, Dict> = {
     'terminal.forward.noTarget': '没有目标接收（目标未在运行）',
 
     'workflow.title': '工作流',
-    'workflow.new': '+ 新建',
+    'workflow.new': '新建',
     'workflow.noProject': '请选择一个项目来创建工作流。',
     'workflow.namePlaceholder': '工作流名称',
     'workflow.promptPlaceholder': '该智能体的指令…',
-    'workflow.addStep': '+ 添加步骤',
+    'workflow.addStep': '添加步骤',
     'workflow.save': '保存',
     'workflow.saved': '工作流已保存',
     'workflow.delete': '删除',
@@ -346,6 +348,8 @@ const messages: Record<Locale, Dict> = {
 }
 
 const zhFallbackMessages: Dict = {
+  'settings.title': '\u8bbe\u7f6e',
+  'settings.fontSize': '\u5b57\u4f53\u5927\u5c0f',
   'explorer.preview': '\u9884\u89c8\u6587\u4ef6',
   'explorer.reveal': '\u5728\u6587\u4ef6\u7ba1\u7406\u5668\u4e2d\u6253\u5f00',
   'explorer.create.file': '\u65b0\u5efa\u6587\u4ef6',

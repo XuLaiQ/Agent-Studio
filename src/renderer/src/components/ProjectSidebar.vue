@@ -103,7 +103,16 @@ onBeforeUnmount(() => {
           {{ t('projects.removeAll.button') }}
         </el-button>
         <el-button size="small" type="primary" plain @click="store.importProject()">
-          {{ t('projects.import') }}
+          <svg class="button-icon" viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M8 3.5v9M3.5 8h9"
+              fill="none"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-width="1.5"
+            />
+          </svg>
+          <span>{{ t('projects.import') }}</span>
         </el-button>
       </div>
     </div>
@@ -148,6 +157,23 @@ onBeforeUnmount(() => {
       @contextmenu.prevent.stop
     >
       <button type="button" @click="openInFileManager">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path
+            d="M3 4.5h4l1.2 1.4H13v5.6H3v-7Z"
+            fill="none"
+            stroke="currentColor"
+            stroke-linejoin="round"
+            stroke-width="1.3"
+          />
+          <path
+            d="M10 3h3v3M9 7l4-4"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.3"
+          />
+        </svg>
         {{ t('projects.open.external') }}
       </button>
     </div>
@@ -167,7 +193,7 @@ onBeforeUnmount(() => {
   font-weight: 600;
   color: var(--text-dim);
   text-transform: uppercase;
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   letter-spacing: 0.5px;
 }
 .head-actions {
@@ -175,11 +201,16 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 6px;
 }
+.button-icon {
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+}
 .empty {
   color: var(--text-dim);
   padding: 14px 12px;
   line-height: 1.6;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .list {
   list-style: none;
@@ -213,7 +244,7 @@ onBeforeUnmount(() => {
   font-weight: 500;
 }
 .path {
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   color: var(--text-dim);
   white-space: nowrap;
   overflow: hidden;
@@ -223,7 +254,7 @@ onBeforeUnmount(() => {
   background: var(--bg-elevated);
   border-radius: 999px;
   padding: 0 7px;
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   color: var(--text-dim);
 }
 .del {

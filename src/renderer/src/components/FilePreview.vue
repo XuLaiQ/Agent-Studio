@@ -376,14 +376,14 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(204, 167, 0, 0.55);
   border-radius: 999px;
   color: var(--warning);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-weight: 500;
 }
 .preview-path {
   max-width: 68vw;
   overflow: hidden;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -393,7 +393,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 10px;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .editor-actions {
   flex: 0 0 auto;
@@ -458,7 +458,7 @@ onBeforeUnmount(() => {
 }
 .empty-state span {
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .loader {
   width: 24px;
@@ -485,7 +485,7 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid var(--border);
   background: rgba(204, 167, 0, 0.12);
   color: var(--warning);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 .notice.warning {
   background: rgba(241, 76, 76, 0.12);
@@ -503,7 +503,7 @@ onBeforeUnmount(() => {
   background: var(--bg-terminal);
   color: var(--text);
   font-family: 'Consolas', 'Cascadia Mono', monospace;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   line-height: 1.55;
   tab-size: 2;
   white-space: pre;
