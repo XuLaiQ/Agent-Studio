@@ -26,6 +26,13 @@ const messages: Record<Locale, Dict> = {
     'lang.label': 'Language',
     'settings.title': 'Settings',
     'settings.fontSize': 'Font size',
+    'settings.agents': 'Agents',
+    'settings.agent.add': 'Add',
+    'settings.agent.name': 'Agent name',
+    'settings.agent.command': 'Startup command',
+    'settings.agent.enabled': 'Enabled',
+    'settings.agent.delete': 'Delete',
+    'settings.agent.builtin': 'Built-in agents cannot be deleted',
 
     'projects.title': 'Projects',
     'projects.import': 'Import',
@@ -249,7 +256,8 @@ const messages: Record<Locale, Dict> = {
     'orchestrator.error.plan-timeout': 'Timed out waiting for the plan. Try regenerating.',
 
     'common.cancel': 'Cancel',
-    'common.close': 'Close'
+    'common.close': 'Close',
+    'common.save': 'Save'
   },
   zh: {
     'app.subtitle': '多智能体 CLI 工作台',
@@ -350,6 +358,14 @@ const messages: Record<Locale, Dict> = {
 const zhFallbackMessages: Dict = {
   'settings.title': '\u8bbe\u7f6e',
   'settings.fontSize': '\u5b57\u4f53\u5927\u5c0f',
+  'settings.agents': '\u667a\u80fd\u4f53',
+  'settings.agent.add': '\u65b0\u589e',
+  'settings.agent.name': '\u667a\u80fd\u4f53\u540d\u79f0',
+  'settings.agent.command': '\u542f\u52a8\u547d\u4ee4',
+  'settings.agent.enabled': '\u542f\u7528',
+  'settings.agent.delete': '\u5220\u9664',
+  'settings.agent.builtin': '\u5185\u7f6e\u667a\u80fd\u4f53\u4e0d\u80fd\u5220\u9664',
+  'common.save': '\u4fdd\u5b58',
   'explorer.preview': '\u9884\u89c8\u6587\u4ef6',
   'explorer.reveal': '\u5728\u6587\u4ef6\u7ba1\u7406\u5668\u4e2d\u6253\u5f00',
   'explorer.create.file': '\u65b0\u5efa\u6587\u4ef6',

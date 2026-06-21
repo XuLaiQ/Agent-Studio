@@ -88,12 +88,16 @@ class Store {
     if (!project) throw new Error(`Project not found: ${input.projectId}`)
     const id = randomUUID()
     const count = project.agents.filter((a) => a.type === input.type).length
-    const label = AGENT_COMMANDS[input.type].label
+    const builtin = AGENT_COMMANDS[input.type]
+    const label = input.label?.trim() || builtin?.label || input.type
+    const command = input.command?.trim() || builtin?.command || input.type
     const agent: Agent = {
       id,
       projectId: project.id,
       name: input.name?.trim() || (count > 0 ? `${label} ${count + 1}` : label),
       type: input.type,
+      typeLabel: label,
+      launchCommand: command,
       status: 'idle',
       terminalId: id
     }

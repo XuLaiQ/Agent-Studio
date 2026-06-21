@@ -295,6 +295,7 @@ onBeforeUnmount(() => {
   height: 28px;
   display: flex;
   align-items: center;
+  gap: 7px;
   padding: 0 10px;
   border: 0;
   border-radius: 0;
@@ -303,6 +304,11 @@ onBeforeUnmount(() => {
   cursor: pointer;
   font: inherit;
   text-align: left;
+}
+.context-menu button svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
 }
 .context-menu button:hover {
   background: var(--list-focus);

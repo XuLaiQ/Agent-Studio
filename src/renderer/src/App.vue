@@ -20,7 +20,7 @@ import {
   LOCALE_OPTIONS,
   type Locale
 } from './i18n'
-import type { FileNode, VersionDiffSelection, VersionFileChange } from '@shared/types'
+import type { AgentConfig, FileNode, VersionDiffSelection, VersionFileChange } from '@shared/types'
 
 interface Tab {
   id: string
@@ -41,9 +41,42 @@ const sidebarView = ref<
   'explorer' | 'sourceControl' | 'workflow' | 'orchestrator' | 'tokens'
 >('explorer')
 const settingsOpen = ref(false)
+const editingAgentId = ref<string | null>(null)
+const agentDraftName = ref('')
+const agentDraftCommand = ref('')
 let resizing = false
 
 const appStyle = computed(() => settings.cssVars)
+const canSaveAgentConfig = computed(
+  () => agentDraftName.value.trim().length > 0 && agentDraftCommand.value.trim().length > 0
+)
+
+function startAddAgentConfig(): void {
+  editingAgentId.value = null
+  agentDraftName.value = ''
+  agentDraftCommand.value = ''
+}
+
+function startEditAgentConfig(config: AgentConfig): void {
+  editingAgentId.value = config.id
+  agentDraftName.value = config.name
+  agentDraftCommand.value = config.command
+}
+
+function saveAgentConfig(): void {
+  if (!canSaveAgentConfig.value) return
+  settings.upsertAgentConfig({
+    id: editingAgentId.value ?? undefined,
+    name: agentDraftName.value,
+    command: agentDraftCommand.value
+  })
+  startAddAgentConfig()
+}
+
+function removeAgentConfig(config: AgentConfig): void {
+  settings.removeAgentConfig(config.id)
+  if (editingAgentId.value === config.id) startAddAgentConfig()
+}
 
 function clampLeftWidth(width: number): number {
   const max = Math.max(280, window.innerWidth - 560)
@@ -364,10 +397,11 @@ watch(
                   stroke-width="1.6"
                 />
                 <path
-                  d="M12 3.5v2M12 18.5v2M5.9 5.9l1.4 1.4M16.7 16.7l1.4 1.4M3.5 12h2M18.5 12h2M5.9 18.1l1.4-1.4M16.7 7.3l1.4-1.4"
+                  d="M19.2 13.4a7.6 7.6 0 0 0 0-2.8l2-1.2-2-3.4-2.3 1a7.4 7.4 0 0 0-2.4-1.4L14.2 3h-4.4l-.4 2.6A7.4 7.4 0 0 0 7 7L4.8 6l-2 3.4 2 1.2a7.6 7.6 0 0 0 0 2.8l-2 1.2 2 3.4 2.3-1a7.4 7.4 0 0 0 2.4 1.4l.4 2.6h4.4l.4-2.6A7.4 7.4 0 0 0 17 17l2.3 1 2-3.4-2.1-1.2Z"
                   fill="none"
                   stroke="currentColor"
                   stroke-linecap="round"
+                  stroke-linejoin="round"
                   stroke-width="1.6"
                 />
               </svg>
@@ -388,6 +422,73 @@ watch(
                   controls-position="right"
                   @update:model-value="settings.setFontSizePx"
                 />
+              </div>
+              <div class="settings-section">
+                <div class="settings-section-head">
+                  <div class="settings-section-title">{{ t('settings.agents') }}</div>
+                  <button class="settings-link" type="button" @click="startAddAgentConfig">
+                    {{ t('settings.agent.add') }}
+                  </button>
+                </div>
+                <div class="agent-config-list">
+                  <div
+                    v-for="config in settings.agentConfigs"
+                    :key="config.id"
+                    class="agent-config-item"
+                    :class="{ active: editingAgentId === config.id }"
+                  >
+                    <input
+                      type="checkbox"
+                      :checked="config.enabled"
+                      :disabled="settings.enabledAgentConfigs.length === 1 && config.enabled"
+                      :title="t('settings.agent.enabled')"
+                      @change="
+                        settings.setAgentTypeEnabled(
+                          config.id,
+                          ($event.target as HTMLInputElement).checked
+                        )
+                      "
+                    />
+                    <button class="agent-config-main" type="button" @click="startEditAgentConfig(config)">
+                      <span class="agent-setting-name">{{ config.name }}</span>
+                      <code>{{ config.command }}</code>
+                    </button>
+                    <button
+                      class="agent-config-delete"
+                      type="button"
+                      :disabled="config.builtin"
+                      :title="config.builtin ? t('settings.agent.builtin') : t('settings.agent.delete')"
+                      @click="removeAgentConfig(config)"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+                <div class="agent-config-form">
+                  <input
+                    v-model="agentDraftName"
+                    class="settings-text"
+                    :placeholder="t('settings.agent.name')"
+                  />
+                  <input
+                    v-model="agentDraftCommand"
+                    class="settings-text"
+                    :placeholder="t('settings.agent.command')"
+                  />
+                  <div class="agent-config-actions">
+                    <button class="settings-link" type="button" @click="startAddAgentConfig">
+                      {{ t('common.cancel') }}
+                    </button>
+                    <button
+                      class="settings-primary"
+                      type="button"
+                      :disabled="!canSaveAgentConfig"
+                      @click="saveAgentConfig"
+                    >
+                      {{ editingAgentId ? t('common.save') : t('dialog.create') }}
+                    </button>
+                  </div>
+                </div>
               </div>
             </section>
           </div>
@@ -600,7 +701,7 @@ watch(
   left: 52px;
   bottom: 0;
   z-index: 30;
-  width: 220px;
+  width: 300px;
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -623,6 +724,134 @@ watch(
 }
 .settings-number {
   width: 100%;
+}
+.settings-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.settings-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.settings-section-title {
+  color: var(--text-dim);
+  font-size: var(--app-font-size-xs);
+  font-weight: 600;
+}
+.settings-link,
+.settings-primary,
+.agent-config-delete {
+  border: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--app-font-size-xs);
+  cursor: pointer;
+}
+.settings-link:hover,
+.agent-config-delete:hover {
+  color: var(--text);
+}
+.settings-primary {
+  min-width: 54px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 2px;
+  background: var(--accent);
+  color: white;
+}
+.settings-primary:disabled,
+.agent-config-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.agent-config-list {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.agent-config-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  color: var(--text);
+}
+.agent-config-item:hover,
+.agent-config-item.active {
+  border-color: var(--border);
+  background: var(--list-hover);
+}
+.agent-config-item input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.agent-config-main {
+  min-width: 0;
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.agent-setting-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--app-font-size-sm);
+}
+.agent-config-main code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-dim);
+  font-size: var(--app-font-size-xs);
+}
+.agent-config-delete {
+  width: 20px;
+  height: 20px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  font-size: var(--app-font-size-md);
+}
+.agent-config-form {
+  display: grid;
+  gap: 6px;
+}
+.settings-text {
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--app-font-size-sm);
+}
+.settings-text:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.agent-config-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 .left {
   min-width: 240px;

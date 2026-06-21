@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
   buildPlannerPrompt,
-  type AgentType,
+  type AgentConfig,
   type OrchestrationPlan,
   type OrchestratorEvent,
   type OrchestratorRunNode
@@ -43,7 +43,7 @@ export const useOrchestratorStore = defineStore('orchestrator', () => {
     masterAgentId = null
   }
 
-  async function generatePlan(masterType: AgentType): Promise<void> {
+  async function generatePlan(masterType: AgentConfig): Promise<void> {
     const studio = useStudioStore()
     const project = studio.activeProject
     const text = goal.value.trim()
@@ -88,7 +88,7 @@ export const useOrchestratorStore = defineStore('orchestrator', () => {
     phase.value = 'review'
   }
 
-  async function execute(idleMs: number, subAgentType: AgentType): Promise<void> {
+  async function execute(idleMs: number, subAgentType: AgentConfig): Promise<void> {
     const studio = useStudioStore()
     const project = studio.activeProject
     if (!project || !plan.value) return

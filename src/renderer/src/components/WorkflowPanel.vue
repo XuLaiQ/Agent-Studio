@@ -14,6 +14,10 @@ interface DraftStep {
   prompt: string
 }
 
+function agentTypeLabel(type: string): string {
+  return AGENT_COMMANDS[type]?.label ?? type
+}
+
 const editingId = ref<string | null>(null)
 const draftName = ref('')
 const draftSteps = ref<DraftStep[]>([])
@@ -170,7 +174,7 @@ const runForThisWorkflow = computed(() =>
             <span class="wf-step-index">{{ index + 1 }}</span>
             <select v-model="step.agentId" class="wf-select">
               <option v-for="a in agents" :key="a.id" :value="a.id">
-                {{ a.name }} · {{ AGENT_COMMANDS[a.type].label }}
+                {{ a.name }} · {{ a.typeLabel || agentTypeLabel(a.type) }}
               </option>
             </select>
             <div class="wf-step-actions">

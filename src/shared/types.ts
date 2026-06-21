@@ -1,6 +1,6 @@
 // Shared domain types used by both the Electron main process and the Vue renderer.
 
-export type AgentType = 'claude' | 'codex' | 'gemini' | 'reasonix'
+export type AgentType = string
 
 export type AgentStatus = 'idle' | 'running' | 'error'
 
@@ -17,6 +17,8 @@ export interface Agent {
   projectId: string
   name: string
   type: AgentType
+  typeLabel?: string
+  launchCommand?: string
   status: AgentStatus
   /** Identifies the backing PTY session in the main process. Equals the agent id. */
   terminalId: string
@@ -269,12 +271,30 @@ export interface TokenUsageStats {
 }
 
 /** Command + default args used to launch each agent's CLI. */
-export const AGENT_COMMANDS: Record<AgentType, { command: string; args: string[]; label: string }> = {
+export const AGENT_COMMANDS: Record<string, { command: string; args: string[]; label: string }> = {
   claude: { command: 'claude', args: [], label: 'Claude' },
   codex: { command: 'codex', args: [], label: 'Codex' },
   gemini: { command: 'gemini', args: [], label: 'Gemini' },
   reasonix: { command: 'reasonix', args: [], label: 'Reasonix' }
 }
+
+export interface AgentConfig {
+  id: AgentType
+  name: string
+  command: string
+  enabled: boolean
+  builtin?: boolean
+}
+
+export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = Object.entries(AGENT_COMMANDS).map(
+  ([id, config]) => ({
+    id,
+    name: config.label,
+    command: config.command,
+    enabled: true,
+    builtin: true
+  })
+)
 
 /** A selectable model for an agent. An empty `id` means "use the CLI default". */
 export interface ModelOption {
@@ -287,7 +307,7 @@ export interface ModelOption {
  * CLI (`--model` for claude, `-m` for codex). Labels are proper nouns, so they are
  * intentionally not run through i18n.
  */
-export const AGENT_MODELS: Record<AgentType, ModelOption[]> = {
+export const AGENT_MODELS: Record<string, ModelOption[]> = {
   claude: [
     { id: '', label: 'Default' },
     { id: 'opus', label: 'Opus 4.8' },
@@ -372,6 +392,8 @@ export interface SessionListInput {
 export interface CreateAgentInput {
   projectId: string
   type: AgentType
+  label?: string
+  command?: string
   name?: string
 }
 
@@ -379,6 +401,7 @@ export interface PtyStartInput {
   agentId: string
   cwd: string
   type: AgentType
+  launchCommand?: string
   cols: number
   rows: number
   /** Launch the CLI with this model (CLI default when empty/undefined). */

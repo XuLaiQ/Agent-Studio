@@ -43,7 +43,7 @@ class PtyManager {
     // Restarting an existing agent: kill the old session first.
     this.kill(input.agentId)
 
-    const { command } = AGENT_COMMANDS[input.type]
+    const command = input.launchCommand?.trim() || AGENT_COMMANDS[input.type]?.command || input.type
     const args = buildAgentArgs(input.type, {
       model: input.model,
       resumeSessionId: input.resumeSessionId

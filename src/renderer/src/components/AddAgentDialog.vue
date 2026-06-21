@@ -1,28 +1,30 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useStudioStore } from '../stores/studio'
+import { useSettingsStore } from '../stores/settings'
 import { t } from '../i18n'
-import { AGENT_COMMANDS, type AgentType } from '@shared/types'
+import type { AgentConfig } from '@shared/types'
 
 const store = useStudioStore()
+const settings = useSettingsStore()
 const visible = ref(false)
-const selected = ref<AgentType>('claude')
+const selected = ref('')
 const name = ref('')
 
-const options = (Object.keys(AGENT_COMMANDS) as AgentType[]).map((type) => ({
-  type,
-  label: AGENT_COMMANDS[type].label,
-  command: AGENT_COMMANDS[type].command
-}))
+const options = computed(() => settings.enabledAgentConfigs)
+const selectedConfig = computed<AgentConfig | undefined>(() =>
+  options.value.find((config) => config.id === selected.value)
+)
 
 function open(): void {
-  selected.value = 'claude'
+  selected.value = settings.enabledAgentConfigs[0]?.id ?? ''
   name.value = ''
   visible.value = true
 }
 
 async function confirm(): Promise<void> {
-  await store.createAgent(selected.value, name.value)
+  if (!selectedConfig.value) return
+  await store.createAgent(selectedConfig.value, name.value)
   visible.value = false
 }
 
@@ -34,12 +36,12 @@ defineExpose({ open })
     <div class="grid">
       <div
         v-for="opt in options"
-        :key="opt.type"
+        :key="opt.id"
         class="card"
-        :class="{ active: selected === opt.type }"
-        @click="selected = opt.type"
+        :class="{ active: selected === opt.id }"
+        @click="selected = opt.id"
       >
-        <div class="card-label">{{ opt.label }}</div>
+        <div class="card-label">{{ opt.name }}</div>
         <code class="card-cmd">{{ opt.command }}</code>
       </div>
     </div>

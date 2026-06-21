@@ -144,6 +144,7 @@ function startSession(opts: { resumeSessionId?: string } = {}): void {
     agentId: props.agent.id,
     cwd: props.projectPath,
     type: props.agent.type,
+    launchCommand: settings.agentConfigOf(props.agent.type)?.command || props.agent.launchCommand,
     cols: term.cols || 80,
     rows: term.rows || 24,
     model: currentModel.value || undefined,

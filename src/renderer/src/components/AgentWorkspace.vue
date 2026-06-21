@@ -19,6 +19,10 @@ const statusColor: Record<AgentStatus, string> = {
   error: '#EF4444'
 }
 
+function agentTypeLabel(agent: Agent): string {
+  return agent.typeLabel || AGENT_COMMANDS[agent.type]?.label || agent.type
+}
+
 const visitedProjects = computed(() =>
   visitedProjectIds.value
     .map((id) => store.projects.find((project) => project.id === id))
@@ -214,7 +218,7 @@ async function closeAllAgents(): Promise<void> {
                 </span>
                 <span class="dot" :style="{ background: statusColor[store.statusOf(agent.id)] }" />
                 <span class="terminal-name">{{ agent.name }}</span>
-                <span class="terminal-type">{{ AGENT_COMMANDS[agent.type].label }}</span>
+                <span class="terminal-type">{{ agentTypeLabel(agent) }}</span>
               </div>
               <button
                 class="close"

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useVersionControlStore } from './versionControl'
-import type { Project, Agent, AgentType, AgentStatus } from '@shared/types'
+import type { Project, Agent, AgentConfig, AgentStatus } from '@shared/types'
 
 export const useStudioStore = defineStore('studio', () => {
   const versionControlStore = useVersionControlStore()
@@ -66,11 +66,13 @@ export const useStudioStore = defineStore('studio', () => {
     activeAgentId.value = proj?.agents[0]?.id ?? null
   }
 
-  async function createAgent(type: AgentType, name?: string): Promise<Agent | null> {
+  async function createAgent(config: AgentConfig, name?: string): Promise<Agent | null> {
     if (!activeProjectId.value) return null
     const agent = await window.studio.createAgent({
       projectId: activeProjectId.value,
-      type,
+      type: config.id,
+      label: config.name,
+      command: config.command,
       name
     })
     activeProject.value?.agents.push(agent)

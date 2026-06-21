@@ -1,18 +1,20 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useStudioStore } from '../stores/studio'
 import { useOrchestratorStore } from '../stores/orchestrator'
+import { useSettingsStore } from '../stores/settings'
 import { t } from '../i18n'
-import { AGENT_COMMANDS, type AgentType, type OrchNodeStatus } from '@shared/types'
+import { AGENT_COMMANDS, type AgentConfig, type OrchNodeStatus } from '@shared/types'
 
 const store = useStudioStore()
 const orch = useOrchestratorStore()
+const settings = useSettingsStore()
 const idleSeconds = ref(8)
 
 // Same option set (and default = first) as the Add Agent dialog.
-const agentTypes = Object.keys(AGENT_COMMANDS) as AgentType[]
-const masterType = ref<AgentType>(agentTypes[0])
-const subAgentType = ref<AgentType>(agentTypes[0])
+const agentTypes = computed(() => settings.enabledAgentConfigs)
+const masterType = ref(settings.enabledAgentConfigs[0]?.id ?? '')
+const subAgentType = ref(settings.enabledAgentConfigs[0]?.id ?? '')
 
 const statusColor: Record<OrchNodeStatus, string> = {
   pending: '#6B7280',
@@ -30,8 +32,29 @@ const isBusy = computed(() => orch.phase === 'planning' || orch.phase === 'runni
 
 function generate(): void {
   if (!orch.goal.trim()) return
-  orch.generatePlan(masterType.value)
+  const config = agentConfig(masterType.value)
+  if (config) orch.generatePlan(config)
 }
+
+function executePlan(): void {
+  const config = agentConfig(subAgentType.value)
+  if (config) orch.execute(Math.max(1, idleSeconds.value) * 1000, config)
+}
+
+function agentConfig(id: string): AgentConfig | undefined {
+  return agentTypes.value.find((config) => config.id === id)
+}
+
+watch(
+  agentTypes,
+  (types) => {
+    const fallback = types[0]?.id
+    if (!fallback) return
+    if (!types.some((config) => config.id === masterType.value)) masterType.value = fallback
+    if (!types.some((config) => config.id === subAgentType.value)) subAgentType.value = fallback
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
@@ -64,16 +87,16 @@ function generate(): void {
         <div class="orch-type-row">
           <label>{{ t('orchestrator.masterAgent') }}</label>
           <select v-model="masterType" class="orch-type-select" :disabled="isBusy">
-            <option v-for="ty in agentTypes" :key="ty" :value="ty">
-              {{ AGENT_COMMANDS[ty].label }}
+            <option v-for="config in agentTypes" :key="config.id" :value="config.id">
+              {{ config.name }}
             </option>
           </select>
         </div>
         <div class="orch-type-row">
           <label>{{ t('orchestrator.subAgent') }}</label>
           <select v-model="subAgentType" class="orch-type-select" :disabled="isBusy">
-            <option v-for="ty in agentTypes" :key="ty" :value="ty">
-              {{ AGENT_COMMANDS[ty].label }}
+            <option v-for="config in agentTypes" :key="config.id" :value="config.id">
+              {{ config.name }}
             </option>
           </select>
         </div>
@@ -129,7 +152,7 @@ function generate(): void {
             <button
               class="orch-btn primary"
               type="button"
-              @click="orch.execute(Math.max(1, idleSeconds) * 1000, subAgentType)"
+              @click="executePlan"
             >
               {{ t('orchestrator.execute') }}
             </button>
