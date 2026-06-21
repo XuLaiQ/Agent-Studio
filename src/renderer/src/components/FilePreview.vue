@@ -493,23 +493,13 @@ onBeforeUnmount(() => {
 }
 .editor {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   width: 100%;
-  padding: 14px 16px 28px;
-  overflow: auto;
+  overflow: hidden;
   border: 0;
   outline: 0;
-  resize: none;
   background: var(--bg-terminal);
-  color: var(--text);
-  font-family: 'Consolas', 'Cascadia Mono', monospace;
-  font-size: var(--app-font-size-sm);
-  line-height: 1.55;
-  tab-size: 2;
-  white-space: pre;
-}
-.editor[readonly] {
-  color: var(--text-dim);
 }
 .image-preview {
   flex: 1;

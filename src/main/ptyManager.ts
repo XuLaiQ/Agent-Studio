@@ -120,10 +120,10 @@ class PtyManager {
   }
 
   /**
-   * Write `data` only after the agent's terminal has produced some output and
-   * then gone quiet for `idleMs` — i.e. its CLI has finished booting and is
-   * ready for input. Falls back to writing anyway after `timeoutMs`. Resolves
-   * false if the session never existed.
+   * Write `data` after the agent's terminal has gone quiet for `idleMs`, which
+   * indicates its CLI has likely finished booting and is ready for input. Falls
+   * back to writing anyway after `timeoutMs`. Resolves false if the session
+   * never existed.
    */
   sendWhenIdle(
     agentId: string,
@@ -136,17 +136,16 @@ class PtyManager {
       if (!session) return resolve(false)
 
       const startedAt = Date.now()
-      const baseline = session.lastDataAt
       const timer = setInterval(() => {
         const s = this.sessions.get(agentId)
         if (!s) {
           clearInterval(timer)
           return resolve(false)
         }
-        const sawOutput = s.lastDataAt > baseline
+        const waitedLongEnough = Date.now() - startedAt >= idleMs
         const idle = Date.now() - s.lastDataAt >= idleMs
         const timedOut = Date.now() - startedAt >= timeoutMs
-        if ((sawOutput && idle) || timedOut) {
+        if ((waitedLongEnough && idle) || timedOut) {
           clearInterval(timer)
           s.proc.write(data)
           resolve(true)

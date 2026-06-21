@@ -60,6 +60,14 @@ onMounted(() => {
     scrollBeyondLastLine: false,
     ignoreTrimWhitespace: false,
     renderOverviewRuler: true,
+    scrollbar: {
+      vertical: 'visible',
+      horizontal: 'visible',
+      verticalScrollbarSize: 12,
+      horizontalScrollbarSize: 12,
+      useShadows: true,
+      alwaysConsumeMouseWheel: false
+    },
     smoothScrolling: true
   })
   buildModels()

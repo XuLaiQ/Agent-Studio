@@ -1,12 +1,58 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { useStudioStore } from '../stores/studio'
 import { t } from '../i18n'
+import type { AgentRuntimeState, ProjectRuntimeSummary } from '../stores/studio'
 import type { Project } from '@shared/types'
 
 const store = useStudioStore()
 const contextMenu = ref<{ project: Project; x: number; y: number } | null>(null)
+const MAX_AGENT_DOTS = 6
+const EMPTY_SUMMARY: ProjectRuntimeSummary = {
+  total: 0,
+  busy: 0,
+  ready: 0,
+  stopped: 0,
+  error: 0,
+  agents: []
+}
+
+const projectSummaries = computed<Record<string, ProjectRuntimeSummary>>(() => {
+  return Object.fromEntries(
+    store.projects.map((project) => [project.id, store.projectRuntimeSummary(project.id)])
+  )
+})
+
+function runtimeLabel(state: AgentRuntimeState): string {
+  return t(`projects.runtime.${state}`)
+}
+
+function summaryOf(project: Project): ProjectRuntimeSummary {
+  return projectSummaries.value[project.id] ?? EMPTY_SUMMARY
+}
+
+function summaryLabel(summary: ProjectRuntimeSummary): string {
+  if (summary.error) return t('projects.summary.error', { count: summary.error })
+  if (summary.busy) return t('projects.summary.busy', { count: summary.busy })
+  if (summary.ready) return t('projects.summary.ready', { count: summary.ready })
+  if (summary.total) return t('projects.summary.stopped', { count: summary.total })
+  return t('projects.summary.none')
+}
+
+function summaryTone(summary: ProjectRuntimeSummary): AgentRuntimeState {
+  if (summary.error) return 'error'
+  if (summary.busy) return 'busy'
+  if (summary.ready) return 'ready'
+  return 'stopped'
+}
+
+function agentsTitle(summary: ProjectRuntimeSummary): string {
+  if (!summary.total) return t('projects.summary.none')
+  return summary.agents
+    .map(({ agent, state }) => `${agent.name}: ${runtimeLabel(state)}`)
+    .join('\n')
+}
 
 async function confirmRemove(project: Project): Promise<void> {
   try {
@@ -131,10 +177,27 @@ onBeforeUnmount(() => {
         @contextmenu="openContextMenu(p, $event)"
       >
         <div class="proj">
-          <span class="name">{{ p.name }}</span>
+          <div class="proj-line">
+            <span class="name">{{ p.name }}</span>
+            <span class="agent-total">{{ summaryOf(p).total }}</span>
+          </div>
           <span class="path">{{ p.path }}</span>
+          <div class="agent-strip" :title="agentsTitle(summaryOf(p))">
+            <span
+              v-for="item in summaryOf(p).agents.slice(0, MAX_AGENT_DOTS)"
+              :key="item.agent.id"
+              class="agent-dot"
+              :class="item.state"
+              :aria-label="`${item.agent.name}: ${runtimeLabel(item.state)}`"
+            />
+            <span v-if="summaryOf(p).total > MAX_AGENT_DOTS" class="agent-more">
+              +{{ summaryOf(p).total - MAX_AGENT_DOTS }}
+            </span>
+          </div>
         </div>
-        <span class="badge">{{ p.agents.length }}</span>
+        <span class="badge" :class="summaryTone(summaryOf(p))">
+          {{ summaryLabel(summaryOf(p)) }}
+        </span>
         <button class="del" type="button" :title="t('projects.remove.tip')" @click.stop="confirmRemove(p)">
           <svg viewBox="0 0 16 16" aria-hidden="true">
             <path
@@ -220,9 +283,9 @@ onBeforeUnmount(() => {
 .list li {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 4px 8px 4px 12px;
+  gap: 8px;
+  min-height: 48px;
+  padding: 6px 8px 6px 12px;
   border-radius: 0;
   cursor: pointer;
 }
@@ -238,10 +301,33 @@ onBeforeUnmount(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 3px;
+}
+.proj-line {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .name {
+  min-width: 0;
+  overflow: hidden;
   color: var(--text);
   font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-total {
+  flex: 0 0 auto;
+  min-width: 16px;
+  height: 16px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  color: var(--text-muted);
+  font-size: var(--app-font-size-xxs);
+  line-height: 1;
 }
 .path {
   font-size: var(--app-font-size-xs);
@@ -250,12 +336,69 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.agent-strip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 10px;
+}
+.agent-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--text-muted);
+  box-shadow: 0 0 0 1px rgba(245, 245, 247, 0.08);
+}
+.agent-dot.busy {
+  background: var(--success);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.14);
+}
+.agent-dot.ready {
+  background: #22d3ee;
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.32);
+}
+.agent-dot.stopped {
+  background: var(--text-muted);
+  opacity: 0.65;
+}
+.agent-dot.error {
+  background: var(--danger);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.16);
+}
+.agent-more {
+  color: var(--text-muted);
+  font-size: var(--app-font-size-xxs);
+  line-height: 1;
+}
 .badge {
+  flex: 0 0 auto;
+  max-width: 64px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 2px;
   background: var(--bg-elevated);
-  border-radius: 999px;
-  padding: 0 7px;
+  padding: 2px 6px;
   font-size: var(--app-font-size-xs);
+  line-height: 1.25;
   color: var(--text-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.badge.busy {
+  border-color: rgba(16, 185, 129, 0.45);
+  color: var(--success);
+}
+.badge.ready {
+  border-color: rgba(34, 211, 238, 0.42);
+  color: #67e8f9;
+}
+.badge.error {
+  border-color: rgba(239, 68, 68, 0.48);
+  color: var(--danger);
+}
+.badge.stopped {
+  color: var(--text-muted);
 }
 .del {
   width: 22px;

@@ -225,7 +225,10 @@ export function defineAgentTheme(): void {
       'editorIndentGuide.background1': '#2A2A38',
       'editorIndentGuide.activeBackground1': '#8B5CF6',
       'editorBracketMatch.background': '#1E1E2A',
-      'editorBracketMatch.border': '#8B5CF6'
+      'editorBracketMatch.border': '#8B5CF6',
+      'scrollbarSlider.background': '#6B728066',
+      'scrollbarSlider.hoverBackground': '#8B5CF688',
+      'scrollbarSlider.activeBackground': '#9D74FFAA'
     }
   })
 }

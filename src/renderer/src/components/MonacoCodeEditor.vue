@@ -72,6 +72,14 @@ onMounted(() => {
     bracketPairColorization: { enabled: true },
     guides: { bracketPairs: true, indentation: true },
     wordWrap: 'off',
+    scrollbar: {
+      vertical: 'visible',
+      horizontal: 'visible',
+      verticalScrollbarSize: 12,
+      horizontalScrollbarSize: 12,
+      useShadows: true,
+      alwaysConsumeMouseWheel: false
+    },
     renderWhitespace: 'selection',
     smoothScrolling: true,
     cursorBlinking: 'smooth',
