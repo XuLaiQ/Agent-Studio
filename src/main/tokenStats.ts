@@ -1,6 +1,6 @@
 import { readdir, readFile, stat } from 'fs/promises'
 import { homedir } from 'os'
-import { basename, join } from 'path'
+import { join } from 'path'
 import type {
   AgentTokenUsage,
   AgentType,
@@ -8,7 +8,6 @@ import type {
   TokenUsageStats
 } from '../shared/types'
 import { AGENT_COMMANDS } from '../shared/types'
-import { store } from './store'
 
 /** Per-model running sums, keyed by raw model id. */
 type ModelSums = Map<string, ModelTokenUsage>
@@ -97,13 +96,8 @@ async function listFilesRecursive(dir: string, predicate: (file: string) => bool
   return files
 }
 
-function normalizePathForCompare(path: string): string {
-  return path.replace(/[\\/]+$/, '').toLowerCase()
-}
-
-/** Claude encodes a project's cwd into its sessions folder name. */
-function claudeProjectDir(cwd: string): string {
-  return join(homedir(), '.claude', 'projects', cwd.replace(/[^a-zA-Z0-9]/g, '-'))
+function claudeProjectsDir(): string {
+  return join(homedir(), '.claude', 'projects')
 }
 
 function codexSessionsDir(): string {
@@ -116,10 +110,6 @@ function codexConfigFile(): string {
 
 function reasonixUsageFile(): string {
   return join(homedir(), '.reasonix', 'usage.jsonl')
-}
-
-function reasonixSessionsDir(): string {
-  return join(homedir(), '.reasonix', 'sessions')
 }
 
 /** Sum the per-model usage recorded in a single Claude JSONL transcript. */
@@ -157,9 +147,8 @@ function parseClaudeTranscript(content: string): ModelSums {
   return sums
 }
 
-function parseCodexTranscript(content: string, projectPaths: Set<string>, fallbackModel: string): ModelSums {
+function parseCodexTranscript(content: string, fallbackModel: string): ModelSums {
   const records: Record<string, unknown>[] = []
-  let cwd: string | null = null
   let model = fallbackModel
 
   for (const line of content.split('\n')) {
@@ -172,16 +161,11 @@ function parseCodexTranscript(content: string, projectPaths: Set<string>, fallba
     }
     records.push(rec)
 
-    if (rec.type === 'session_meta') {
-      const payload = rec.payload as { cwd?: unknown } | undefined
-      if (typeof payload?.cwd === 'string') cwd = payload.cwd
-    } else if (rec.type === 'turn_context') {
+    if (rec.type === 'turn_context') {
       const payload = rec.payload as { model?: unknown } | undefined
       if (typeof payload?.model === 'string' && payload.model) model = payload.model
     }
   }
-
-  if (!cwd || !projectPaths.has(normalizePathForCompare(cwd))) return new Map()
 
   const sums: ModelSums = new Map()
   for (const rec of records) {
@@ -207,7 +191,7 @@ function parseCodexTranscript(content: string, projectPaths: Set<string>, fallba
   return sums
 }
 
-function parseReasonixUsage(content: string, supportedSessions: Set<string>): ModelSums {
+function parseReasonixUsage(content: string): ModelSums {
   const sums: ModelSums = new Map()
 
   for (const line of content.split('\n')) {
@@ -218,9 +202,6 @@ function parseReasonixUsage(content: string, supportedSessions: Set<string>): Mo
     } catch {
       continue
     }
-
-    const session = typeof rec.session === 'string' ? rec.session : ''
-    if (!session || !supportedSessions.has(session)) continue
 
     const model = typeof rec.model === 'string' && rec.model ? rec.model : 'unknown'
     const cacheRead = toNumber(rec.cacheHitTokens)
@@ -265,22 +246,12 @@ async function readTranscriptSums(
   }
 }
 
-/** Aggregate Claude usage across every imported project's transcript folder. */
-async function collectClaudeUsage(projectPaths: string[]): Promise<ModelSums> {
+/** Aggregate Claude usage across every local transcript folder. */
+async function collectClaudeUsage(): Promise<ModelSums> {
   const total: ModelSums = new Map()
-
-  for (const cwd of projectPaths) {
-    const dir = claudeProjectDir(cwd)
-    let files: string[]
-    try {
-      files = (await readdir(dir)).filter((f) => f.endsWith('.jsonl'))
-    } catch {
-      continue // No Claude sessions recorded for this project.
-    }
-
-    const perFile = await Promise.all(files.map((f) => readTranscriptSums(join(dir, f))))
-    for (const sums of perFile) mergeSums(total, sums)
-  }
+  const files = await listFilesRecursive(claudeProjectsDir(), (file) => file.endsWith('.jsonl'))
+  const perFile = await Promise.all(files.map((file) => readTranscriptSums(file)))
+  for (const sums of perFile) mergeSums(total, sums)
 
   return total
 }
@@ -296,9 +267,8 @@ async function readCodexModel(): Promise<string> {
 }
 
 /** Aggregate Codex usage from ~/.codex/sessions rollout JSONL files. */
-async function collectCodexUsage(projectPaths: string[]): Promise<ModelSums> {
+async function collectCodexUsage(): Promise<ModelSums> {
   const total: ModelSums = new Map()
-  const projectSet = new Set(projectPaths.map(normalizePathForCompare))
   const model = await readCodexModel()
   const files = await listFilesRecursive(
     codexSessionsDir(),
@@ -309,8 +279,8 @@ async function collectCodexUsage(projectPaths: string[]): Promise<ModelSums> {
     files.map((file) =>
       readTranscriptSums(
         file,
-        (content) => parseCodexTranscript(content, projectSet, model),
-        `codex:${model}:${[...projectSet].join('|')}`
+        (content) => parseCodexTranscript(content, model),
+        `codex:${model}`
       )
     )
   )
@@ -319,43 +289,12 @@ async function collectCodexUsage(projectPaths: string[]): Promise<ModelSums> {
   return total
 }
 
-async function collectReasonixProjectSessions(projectPaths: string[]): Promise<Set<string>> {
-  const projectSet = new Set(projectPaths.map(normalizePathForCompare))
-  const sessions = new Set<string>()
-  const files = await listFilesRecursive(reasonixSessionsDir(), (file) => file.endsWith('.meta.json'))
-
-  await Promise.all(
-    files.map(async (file) => {
-      try {
-        const meta = JSON.parse(await readFile(file, 'utf8')) as {
-          workspace?: unknown
-          session?: unknown
-        }
-        const workspace = typeof meta.workspace === 'string' ? meta.workspace : ''
-        if (!projectSet.has(normalizePathForCompare(workspace))) return
-
-        const session =
-          typeof meta.session === 'string'
-            ? meta.session
-            : basename(file, '.meta.json')
-        sessions.add(session)
-      } catch {
-        // Ignore malformed metadata; the usage log itself remains intact.
-      }
-    })
-  )
-
-  return sessions
-}
-
 /** Aggregate Reasonix usage from ~/.reasonix/usage.jsonl. */
-async function collectReasonixUsage(projectPaths: string[]): Promise<ModelSums> {
-  const sessions = await collectReasonixProjectSessions(projectPaths)
-  if (!sessions.size) return new Map()
+async function collectReasonixUsage(): Promise<ModelSums> {
   return readTranscriptSums(
     reasonixUsageFile(),
-    (content) => parseReasonixUsage(content, sessions),
-    `reasonix:${[...sessions].sort().join('|')}`
+    parseReasonixUsage,
+    'reasonix'
   )
 }
 
@@ -369,17 +308,16 @@ function finalizeAgent(type: AgentType, sums: ModelSums, supported: boolean): Ag
 
 /**
  * Builds the application-wide token usage snapshot. Usage is derived from the
- * CLIs' on-disk session transcripts, aggregated across all imported projects, so
- * it reflects real cumulative usage regardless of which project produced it.
+ * CLIs' on-disk session transcripts and usage logs, independent of the current
+ * project list, so it reflects real cumulative usage even after projects close.
  * Claude, Codex, and Reasonix expose parseable local usage records. Other agent
  * types are reported with an empty, `supported: false` entry until wired.
  */
 export async function collectTokenUsage(): Promise<TokenUsageStats> {
-  const projectPaths = store.getProjects().map((p) => p.path)
   const [claudeSums, codexSums, reasonixSums] = await Promise.all([
-    collectClaudeUsage(projectPaths),
-    collectCodexUsage(projectPaths),
-    collectReasonixUsage(projectPaths)
+    collectClaudeUsage(),
+    collectCodexUsage(),
+    collectReasonixUsage()
   ])
 
   const agents: AgentTokenUsage[] = (Object.keys(AGENT_COMMANDS) as AgentType[]).map((type) => {
@@ -394,7 +332,6 @@ export async function collectTokenUsage(): Promise<TokenUsageStats> {
   return {
     agents,
     totalTokens,
-    projectCount: projectPaths.length,
     scannedAt: Date.now()
   }
 }

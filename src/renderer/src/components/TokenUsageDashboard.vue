@@ -285,7 +285,7 @@ onMounted(() => {
         <div class="kpi-card">
           <span class="kpi-label">{{ t('tokens.messages') }}</span>
           <span class="kpi-value">{{ totals.responses.toLocaleString() }}</span>
-          <span class="kpi-sub">{{ t('tokens.projects', { count: stats?.projectCount ?? 0 }) }}</span>
+          <span class="kpi-sub">{{ t('tokens.scope') }}</span>
         </div>
         <div class="kpi-card">
           <span class="kpi-label">{{ t('tokens.modelsTracked') }}</span>

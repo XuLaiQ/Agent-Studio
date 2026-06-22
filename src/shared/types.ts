@@ -236,7 +236,7 @@ export interface VersionCreateBranchInput {
   checkout: boolean
 }
 
-// ---- Token usage statistics (application-level, aggregated across projects) ----
+// ---- Token usage statistics (application-level usage history) ----
 
 /** Cumulative token usage for a single model under one agent type. */
 export interface ModelTokenUsage {
@@ -261,12 +261,10 @@ export interface AgentTokenUsage {
   supported: boolean
 }
 
-/** App-wide token usage snapshot, aggregated across every imported project. */
+/** App-wide token usage snapshot, aggregated from local CLI usage history. */
 export interface TokenUsageStats {
   agents: AgentTokenUsage[]
   totalTokens: number
-  /** Number of projects whose transcripts were scanned. */
-  projectCount: number
   scannedAt: number
 }
 

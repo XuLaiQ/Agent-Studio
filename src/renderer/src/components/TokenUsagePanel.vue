@@ -111,7 +111,7 @@ onMounted(() => {
         <span class="summary-label">{{ t('tokens.total') }}</span>
       </div>
       <div class="summary-meta">
-        {{ t('tokens.projects', { count: stats?.projectCount ?? 0 }) }}
+        {{ t('tokens.scope') }}
       </div>
     </div>
 
