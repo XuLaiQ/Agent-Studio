@@ -352,6 +352,10 @@ export function buildAgentArgs(type: AgentType, opts: AgentLaunchOptions = {}): 
     case 'gemini':
       return model ? ['-m', model] : []
     case 'reasonix':
+      // Reasonix resumes the saved code session for the current cwd.
+      return resumeSessionId
+        ? ['code', '--resume']
+        : []
     default:
       return []
   }
