@@ -19,10 +19,13 @@ const versionStore = useVersionControlStore()
 const commitMessage = ref('')
 const newBranchName = ref('')
 
+type ToolbarAction = 'fetch' | 'pull' | 'push' | 'refresh'
+
 // Lazily-loaded files per commit, keyed by full hash, plus expand/loading state.
 const commitFilesCache = reactive<Record<string, VersionCommitFile[]>>({})
 const expandedCommits = ref<Set<string>>(new Set())
 const loadingCommit = ref<string | null>(null)
+const activeToolbarAction = ref<ToolbarAction | null>(null)
 
 const form = reactive({
   name: '',
@@ -41,6 +44,12 @@ const canCommit = computed(
   () => Boolean(activeStatus.value?.isRepository) && versionStore.stagedChanges.length > 0
 )
 const hasRemote = computed(() => Boolean(activeStatus.value?.remotes.length))
+const currentToolbarAction = computed<ToolbarAction | null>(
+  () => activeToolbarAction.value ?? (versionStore.loading ? 'refresh' : null)
+)
+const isToolbarBusy = computed(
+  () => Boolean(currentToolbarAction.value) || versionStore.operationLoading
+)
 
 function branchHue(name: string): number {
   let hash = 0
@@ -151,12 +160,29 @@ async function withProject(action: (projectId: string) => Promise<void>): Promis
   }
 }
 
-async function refresh(): Promise<void> {
+function isToolbarActionLoading(action: ToolbarAction): boolean {
+  return currentToolbarAction.value === action
+}
+
+async function runToolbarAction(action: ToolbarAction, task: () => Promise<void>): Promise<void> {
+  if (isToolbarBusy.value) return
+
+  activeToolbarAction.value = action
   try {
-    await versionStore.scan()
-  } catch (err) {
-    ElMessage.error(err instanceof Error ? err.message : String(err))
+    await task()
+  } finally {
+    activeToolbarAction.value = null
   }
+}
+
+async function refresh(): Promise<void> {
+  await runToolbarAction('refresh', async () => {
+    try {
+      await versionStore.scan()
+    } catch (err) {
+      ElMessage.error(err instanceof Error ? err.message : String(err))
+    }
+  })
 }
 
 async function addConnection(): Promise<void> {
@@ -209,15 +235,15 @@ async function commitChanges(): Promise<void> {
 }
 
 async function fetchProject(): Promise<void> {
-  await withProject((projectId) => versionStore.fetch(projectId))
+  await runToolbarAction('fetch', () => withProject((projectId) => versionStore.fetch(projectId)))
 }
 
 async function pullProject(): Promise<void> {
-  await withProject((projectId) => versionStore.pull(projectId))
+  await runToolbarAction('pull', () => withProject((projectId) => versionStore.pull(projectId)))
 }
 
 async function pushProject(): Promise<void> {
-  await withProject((projectId) => versionStore.push(projectId))
+  await runToolbarAction('push', () => withProject((projectId) => versionStore.push(projectId)))
 }
 
 async function checkout(branch: VersionBranch): Promise<void> {
@@ -295,16 +321,52 @@ onMounted(() => {
         <span>{{ t('version.graph') }}</span>
       </button>
       <div class="toolbar">
-        <button class="icon-action" type="button" :title="t('version.fetch')" :disabled="!hasRemote" @click="fetchProject">
+        <button
+          class="icon-action"
+          type="button"
+          data-action="fetch"
+          :class="{ 'is-loading': isToolbarActionLoading('fetch') }"
+          :title="t('version.fetch')"
+          :disabled="!hasRemote || isToolbarBusy"
+          :aria-busy="isToolbarActionLoading('fetch')"
+          @click="fetchProject"
+        >
           <svg><use href="#vc-fetch" /></svg>
         </button>
-        <button class="icon-action" type="button" :title="t('version.pull')" :disabled="!hasRemote" @click="pullProject">
+        <button
+          class="icon-action"
+          type="button"
+          data-action="pull"
+          :class="{ 'is-loading': isToolbarActionLoading('pull') }"
+          :title="t('version.pull')"
+          :disabled="!hasRemote || isToolbarBusy"
+          :aria-busy="isToolbarActionLoading('pull')"
+          @click="pullProject"
+        >
           <svg><use href="#vc-pull" /></svg>
         </button>
-        <button class="icon-action" type="button" :title="t('version.push')" :disabled="!hasRemote" @click="pushProject">
+        <button
+          class="icon-action"
+          type="button"
+          data-action="push"
+          :class="{ 'is-loading': isToolbarActionLoading('push') }"
+          :title="t('version.push')"
+          :disabled="!hasRemote || isToolbarBusy"
+          :aria-busy="isToolbarActionLoading('push')"
+          @click="pushProject"
+        >
           <svg><use href="#vc-push" /></svg>
         </button>
-        <button class="icon-action" type="button" :title="t('version.scan')" @click="refresh">
+        <button
+          class="icon-action"
+          type="button"
+          data-action="refresh"
+          :class="{ 'is-loading': isToolbarActionLoading('refresh') }"
+          :title="t('version.scan')"
+          :disabled="isToolbarBusy"
+          :aria-busy="isToolbarActionLoading('refresh')"
+          @click="refresh"
+        >
           <svg><use href="#vc-refresh" /></svg>
         </button>
       </div>
@@ -561,9 +623,27 @@ onMounted(() => {
   align-items: center;
 }
 .section-head {
+  position: relative;
   justify-content: space-between;
   min-height: 34px;
   padding: 0 8px 0 12px;
+  overflow: hidden;
+}
+.section-head::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  bottom: 0;
+  width: 86px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-hover), transparent);
+  opacity: 0;
+  transform: translateX(-35%);
+  pointer-events: none;
+}
+.section-head:has(.icon-action.is-loading)::after {
+  opacity: 1;
+  animation: vc-progress-line 1s ease-in-out infinite;
 }
 .section-title {
   min-width: 0;
@@ -604,12 +684,19 @@ onMounted(() => {
   cursor: pointer;
 }
 .icon-action {
+  position: relative;
   width: 24px;
   height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
+  overflow: hidden;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease;
 }
 .icon-action:hover,
 .branch-row:hover {
@@ -619,6 +706,35 @@ onMounted(() => {
 .icon-action:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+.icon-action.is-loading {
+  border-color: color-mix(in srgb, var(--accent-hover) 72%, var(--border));
+  background: color-mix(in srgb, var(--accent) 14%, var(--bg-panel));
+  color: var(--accent-hover);
+  opacity: 1;
+}
+.icon-action.is-loading::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1.5px solid color-mix(in srgb, var(--accent-hover) 28%, transparent);
+  border-top-color: var(--accent-hover);
+  border-radius: 50%;
+  animation: vc-spin 0.72s linear infinite;
+}
+.icon-action.is-loading svg {
+  position: relative;
+  z-index: 1;
+}
+.icon-action.is-loading[data-action='fetch'] svg,
+.icon-action.is-loading[data-action='pull'] svg {
+  animation: vc-flow-down 0.86s ease-in-out infinite;
+}
+.icon-action.is-loading[data-action='push'] svg {
+  animation: vc-flow-up 0.86s ease-in-out infinite;
+}
+.icon-action.is-loading[data-action='refresh'] svg {
+  animation: vc-refresh-spin 0.82s linear infinite;
 }
 .repo-header {
   justify-content: space-between;
@@ -912,5 +1028,53 @@ onMounted(() => {
 .add-form input:first-child,
 .add-form input:nth-child(3) {
   grid-column: 1 / -1;
+}
+
+@keyframes vc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes vc-refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes vc-flow-down {
+  0%,
+  100% {
+    transform: translateY(-1px);
+    opacity: 0.72;
+  }
+  50% {
+    transform: translateY(2px);
+    opacity: 1;
+  }
+}
+
+@keyframes vc-flow-up {
+  0%,
+  100% {
+    transform: translateY(1px);
+    opacity: 0.72;
+  }
+  50% {
+    transform: translateY(-2px);
+    opacity: 1;
+  }
+}
+
+@keyframes vc-progress-line {
+  0% {
+    transform: translateX(-45%);
+  }
+  50% {
+    transform: translateX(10%);
+  }
+  100% {
+    transform: translateX(55%);
+  }
 }
 </style>

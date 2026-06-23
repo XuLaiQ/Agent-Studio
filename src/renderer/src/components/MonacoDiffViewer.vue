@@ -4,6 +4,7 @@ import {
   AGENT_THEME,
   defineAgentTheme,
   ensureMonacoEnvironment,
+  getAgentTheme,
   languageForFile,
   monaco
 } from './monaco/setup'
@@ -47,7 +48,7 @@ onMounted(() => {
   defineAgentTheme()
 
   editor = monaco.editor.createDiffEditor(host.value, {
-    theme: AGENT_THEME,
+    theme: getAgentTheme(settings.theme),
     readOnly: true,
     originalEditable: false,
     automaticLayout: false,

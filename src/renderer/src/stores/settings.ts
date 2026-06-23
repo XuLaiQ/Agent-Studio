@@ -4,11 +4,14 @@ import { DEFAULT_AGENT_CONFIGS, type AgentConfig, type AgentType } from '@shared
 
 const FONT_SIZE_STORAGE_KEY = 'agent-studio.settings.fontSizePx'
 const LEGACY_SCALE_STORAGE_KEY = 'agent-studio.settings.fontScale'
+const THEME_STORAGE_KEY = 'agent-studio.settings.theme'
 const AGENT_TYPES_STORAGE_KEY = 'agent-studio.settings.enabledAgentTypes'
 const AGENT_CONFIGS_STORAGE_KEY = 'agent-studio.settings.agentConfigs'
 const DEFAULT_FONT_SIZE = 13
 const MIN_FONT_SIZE = 10
 const MAX_FONT_SIZE = 28
+
+export type ThemeMode = 'dark' | 'light'
 
 const DEFAULT_AGENT_TYPES = DEFAULT_AGENT_CONFIGS.map((config) => config.id)
 
@@ -17,6 +20,12 @@ const legacyScaleMap: Record<string, number> = {
   normal: 13,
   large: 15,
   extra: 17
+}
+
+function initialTheme(): ThemeMode {
+  const saved = localStorage.getItem(THEME_STORAGE_KEY)
+  if (saved === 'dark' || saved === 'light') return saved
+  return 'dark'
 }
 
 function clampFontSize(value: number): number {
@@ -94,11 +103,13 @@ function persistAgentConfigs(configs: AgentConfig[]): void {
 
 export const useSettingsStore = defineStore('settings', () => {
   const fontSizePx = ref(initialFontSize())
+  const theme = ref<ThemeMode>(initialTheme())
   const agentConfigs = ref<AgentConfig[]>(initialAgentConfigs())
 
   const cssVars = computed<Record<string, string>>(() => {
     const base = fontSizePx.value
     return {
+      '--app-theme': theme.value,
       '--app-font-size-xxs': `${Math.max(10, base - 3)}px`,
       '--app-font-size-xs': `${Math.max(10, base - 2)}px`,
       '--app-font-size-sm': `${Math.max(11, base - 1)}px`,
@@ -118,6 +129,10 @@ export const useSettingsStore = defineStore('settings', () => {
   function setFontSizePx(next: number | undefined): void {
     if (typeof next !== 'number' || !Number.isFinite(next)) return
     fontSizePx.value = clampFontSize(next)
+  }
+
+  function setTheme(next: ThemeMode): void {
+    theme.value = next
   }
 
   function setAgentTypeEnabled(type: AgentType, enabled: boolean): void {
@@ -167,6 +182,7 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   watch(fontSizePx, (next) => localStorage.setItem(FONT_SIZE_STORAGE_KEY, String(next)), { immediate: true })
+  watch(theme, (next) => localStorage.setItem(THEME_STORAGE_KEY, next), { immediate: true })
   watch(
     agentConfigs,
     (next) => persistAgentConfigs(next),
@@ -177,6 +193,7 @@ export const useSettingsStore = defineStore('settings', () => {
     fontSizePx,
     minFontSize: MIN_FONT_SIZE,
     maxFontSize: MAX_FONT_SIZE,
+    theme,
     agentConfigs,
     enabledAgentConfigs,
     availableAgentTypes: DEFAULT_AGENT_TYPES,
@@ -184,6 +201,7 @@ export const useSettingsStore = defineStore('settings', () => {
     cssVars,
     terminalFontSize,
     setFontSizePx,
+    setTheme,
     setAgentTypeEnabled,
     isAgentTypeEnabled,
     upsertAgentConfig,

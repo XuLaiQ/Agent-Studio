@@ -9,18 +9,15 @@ import WorkflowPanel from './components/WorkflowPanel.vue'
 import OrchestratorPanel from './components/OrchestratorPanel.vue'
 import TokenUsagePanel from './components/TokenUsagePanel.vue'
 import TokenUsageDashboard from './components/TokenUsageDashboard.vue'
+import SettingsDashboard from './components/SettingsDashboard.vue'
 import AgentWorkspace from './components/AgentWorkspace.vue'
 import FilePreview from './components/FilePreview.vue'
 import FileDiffView from './components/FileDiffView.vue'
 import {
-  locale,
-  setLocale,
   elementLocale,
-  t,
-  LOCALE_OPTIONS,
-  type Locale
+  t
 } from './i18n'
-import type { AgentConfig, FileNode, VersionDiffSelection, VersionFileChange } from '@shared/types'
+import type { FileNode, VersionDiffSelection, VersionFileChange } from '@shared/types'
 
 interface Tab {
   id: string
@@ -40,43 +37,10 @@ const activeWorkspace = ref<'agents' | 'preview'>('agents')
 const sidebarView = ref<
   'explorer' | 'sourceControl' | 'workflow' | 'orchestrator' | 'tokens'
 >('explorer')
-const settingsOpen = ref(false)
-const editingAgentId = ref<string | null>(null)
-const agentDraftName = ref('')
-const agentDraftCommand = ref('')
+const showSettingsPage = ref(false)
 let resizing = false
 
 const appStyle = computed(() => settings.cssVars)
-const canSaveAgentConfig = computed(
-  () => agentDraftName.value.trim().length > 0 && agentDraftCommand.value.trim().length > 0
-)
-
-function startAddAgentConfig(): void {
-  editingAgentId.value = null
-  agentDraftName.value = ''
-  agentDraftCommand.value = ''
-}
-
-function startEditAgentConfig(config: AgentConfig): void {
-  editingAgentId.value = config.id
-  agentDraftName.value = config.name
-  agentDraftCommand.value = config.command
-}
-
-function saveAgentConfig(): void {
-  if (!canSaveAgentConfig.value) return
-  settings.upsertAgentConfig({
-    id: editingAgentId.value ?? undefined,
-    name: agentDraftName.value,
-    command: agentDraftCommand.value
-  })
-  startAddAgentConfig()
-}
-
-function removeAgentConfig(config: AgentConfig): void {
-  settings.removeAgentConfig(config.id)
-  if (editingAgentId.value === config.id) startAddAgentConfig()
-}
 
 function clampLeftWidth(width: number): number {
   const max = Math.max(280, window.innerWidth - 560)
@@ -259,29 +223,19 @@ watch(
     activeWorkspace.value = 'agents'
   }
 )
+
+watch(sidebarView, () => {
+  showSettingsPage.value = false
+})
 </script>
 
 <template>
   <el-config-provider :locale="elementLocale">
-    <div class="app-shell" :style="appStyle">
+    <div class="app-shell" :style="appStyle" :data-theme="settings.theme">
       <header class="header">
         <span class="logo">Agent Studio</span>
         <span class="subtitle">{{ t('app.subtitle') }}</span>
         <div class="spacer" />
-        <el-select
-          :model-value="locale"
-          size="small"
-          class="lang-select"
-          :title="t('lang.label')"
-          @update:model-value="(v: Locale) => setLocale(v)"
-        >
-          <el-option
-            v-for="opt in LOCALE_OPTIONS"
-            :key="opt.value"
-            :value="opt.value"
-            :label="opt.label"
-          />
-        </el-select>
       </header>
 
       <div class="body">
@@ -383,9 +337,9 @@ watch(
             <button
               type="button"
               class="activity-item"
-              :class="{ active: settingsOpen }"
+              :class="{ active: showSettingsPage }"
               :title="t('settings.title')"
-              @click.stop="settingsOpen = !settingsOpen"
+              @click.stop="showSettingsPage = !showSettingsPage"
             >
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <circle
@@ -406,91 +360,6 @@ watch(
                 />
               </svg>
             </button>
-            <section v-if="settingsOpen" class="settings-popover" @click.stop>
-              <header class="settings-head">{{ t('settings.title') }}</header>
-              <div class="settings-row">
-                <label for="font-size-px">{{ t('settings.fontSize') }}</label>
-                <el-input-number
-                  id="font-size-px"
-                  :model-value="settings.fontSizePx"
-                  :min="settings.minFontSize"
-                  :max="settings.maxFontSize"
-                  :step="1"
-                  :controls="true"
-                  size="small"
-                  class="settings-number"
-                  controls-position="right"
-                  @update:model-value="settings.setFontSizePx"
-                />
-              </div>
-              <div class="settings-section">
-                <div class="settings-section-head">
-                  <div class="settings-section-title">{{ t('settings.agents') }}</div>
-                  <button class="settings-link" type="button" @click="startAddAgentConfig">
-                    {{ t('settings.agent.add') }}
-                  </button>
-                </div>
-                <div class="agent-config-list">
-                  <div
-                    v-for="config in settings.agentConfigs"
-                    :key="config.id"
-                    class="agent-config-item"
-                    :class="{ active: editingAgentId === config.id }"
-                  >
-                    <input
-                      type="checkbox"
-                      :checked="config.enabled"
-                      :disabled="settings.enabledAgentConfigs.length === 1 && config.enabled"
-                      :title="t('settings.agent.enabled')"
-                      @change="
-                        settings.setAgentTypeEnabled(
-                          config.id,
-                          ($event.target as HTMLInputElement).checked
-                        )
-                      "
-                    />
-                    <button class="agent-config-main" type="button" @click="startEditAgentConfig(config)">
-                      <span class="agent-setting-name">{{ config.name }}</span>
-                      <code>{{ config.command }}</code>
-                    </button>
-                    <button
-                      class="agent-config-delete"
-                      type="button"
-                      :disabled="config.builtin"
-                      :title="config.builtin ? t('settings.agent.builtin') : t('settings.agent.delete')"
-                      @click="removeAgentConfig(config)"
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-                <div class="agent-config-form">
-                  <input
-                    v-model="agentDraftName"
-                    class="settings-text"
-                    :placeholder="t('settings.agent.name')"
-                  />
-                  <input
-                    v-model="agentDraftCommand"
-                    class="settings-text"
-                    :placeholder="t('settings.agent.command')"
-                  />
-                  <div class="agent-config-actions">
-                    <button class="settings-link" type="button" @click="startAddAgentConfig">
-                      {{ t('common.cancel') }}
-                    </button>
-                    <button
-                      class="settings-primary"
-                      type="button"
-                      :disabled="!canSaveAgentConfig"
-                      @click="saveAgentConfig"
-                    >
-                      {{ editingAgentId ? t('common.save') : t('dialog.create') }}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </section>
           </div>
         </nav>
 
@@ -527,10 +396,11 @@ watch(
           @pointerdown="startResize"
         />
         <main class="main">
-          <TokenUsageDashboard v-if="sidebarView === 'tokens'" />
+          <SettingsDashboard v-if="showSettingsPage" />
+          <TokenUsageDashboard v-else-if="sidebarView === 'tokens'" />
           <!-- Kept mounted (v-show, not v-if) so agent terminals/PTYs survive
                switching to the token dashboard and back. -->
-          <div v-show="sidebarView !== 'tokens'" class="workspace-stack">
+          <div v-show="!showSettingsPage && sidebarView !== 'tokens'" class="workspace-stack">
           <div class="main-switcher">
             <button
               type="button"
@@ -695,163 +565,6 @@ watch(
   bottom: 8px;
   width: 2px;
   background: var(--accent);
-}
-.settings-popover {
-  position: absolute;
-  left: 52px;
-  bottom: 0;
-  z-index: 30;
-  width: 300px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: rgba(18, 18, 26, 0.98);
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.45);
-}
-.settings-head {
-  margin-bottom: 10px;
-  color: var(--text);
-  font-size: var(--app-font-size-sm);
-  font-weight: 600;
-}
-.settings-row {
-  display: grid;
-  gap: 6px;
-}
-.settings-row label {
-  color: var(--text-dim);
-  font-size: var(--app-font-size-xs);
-}
-.settings-number {
-  width: 100%;
-}
-.settings-section {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-}
-.settings-section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.settings-section-title {
-  color: var(--text-dim);
-  font-size: var(--app-font-size-xs);
-  font-weight: 600;
-}
-.settings-link,
-.settings-primary,
-.agent-config-delete {
-  border: 0;
-  background: transparent;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: var(--app-font-size-xs);
-  cursor: pointer;
-}
-.settings-link:hover,
-.agent-config-delete:hover {
-  color: var(--text);
-}
-.settings-primary {
-  min-width: 54px;
-  height: 24px;
-  padding: 0 10px;
-  border-radius: 2px;
-  background: var(--accent);
-  color: white;
-}
-.settings-primary:disabled,
-.agent-config-delete:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-.agent-config-list {
-  display: grid;
-  gap: 4px;
-  margin-bottom: 10px;
-}
-.agent-config-item {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 36px;
-  padding: 4px;
-  border: 1px solid transparent;
-  border-radius: 2px;
-  color: var(--text);
-}
-.agent-config-item:hover,
-.agent-config-item.active {
-  border-color: var(--border);
-  background: var(--list-hover);
-}
-.agent-config-item input {
-  width: 14px;
-  height: 14px;
-  margin: 0;
-  accent-color: var(--accent);
-}
-.agent-config-main {
-  min-width: 0;
-  display: grid;
-  flex: 1;
-  gap: 2px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-}
-.agent-setting-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--app-font-size-sm);
-}
-.agent-config-main code {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-dim);
-  font-size: var(--app-font-size-xs);
-}
-.agent-config-delete {
-  width: 20px;
-  height: 20px;
-  display: inline-grid;
-  place-items: center;
-  padding: 0;
-  font-size: var(--app-font-size-md);
-}
-.agent-config-form {
-  display: grid;
-  gap: 6px;
-}
-.settings-text {
-  width: 100%;
-  height: 28px;
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: 2px;
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-  font-size: var(--app-font-size-sm);
-}
-.settings-text:focus {
-  border-color: var(--accent);
-  outline: none;
-}
-.agent-config-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
 }
 .left {
   min-width: 240px;

@@ -85,6 +85,12 @@ async function refresh(): Promise<void> {
   }
 }
 
+async function setTodayOnly(val: boolean): Promise<void> {
+  if (tokenStore.todayOnly === val) return
+  tokenStore.todayOnly = val
+  await refresh()
+}
+
 onMounted(() => {
   if (!tokenStore.stats) refresh()
 })
@@ -110,8 +116,25 @@ onMounted(() => {
         <span class="summary-value">{{ formatTokens(stats?.totalTokens ?? 0) }}</span>
         <span class="summary-label">{{ t('tokens.total') }}</span>
       </div>
-      <div class="summary-meta">
-        {{ t('tokens.scope') }}
+      <div class="scope-toggle-group">
+        <button
+          class="scope-toggle-btn"
+          :class="{ active: tokenStore.todayOnly }"
+          type="button"
+          :disabled="tokenStore.loading"
+          @click="setTodayOnly(true)"
+        >
+          {{ t('tokens.today') }}
+        </button>
+        <button
+          class="scope-toggle-btn"
+          :class="{ active: !tokenStore.todayOnly }"
+          type="button"
+          :disabled="tokenStore.loading"
+          @click="setTodayOnly(false)"
+        >
+          {{ t('tokens.allTime') }}
+        </button>
       </div>
     </div>
 
@@ -235,9 +258,38 @@ onMounted(() => {
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
-.summary-meta {
+.scope-toggle-group {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.scope-toggle-btn {
+  padding: 2px 10px;
+  border: none;
+  background: transparent;
   color: var(--text-dim);
+  font: inherit;
   font-size: var(--app-font-size-xs);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  line-height: 1.6;
+}
+.scope-toggle-btn:first-child {
+  border-right: 1px solid var(--border);
+}
+.scope-toggle-btn:hover:not(:disabled) {
+  background: var(--list-hover);
+  color: var(--text);
+}
+.scope-toggle-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+.scope-toggle-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .legend {
   display: flex;

@@ -1,4 +1,5 @@
-:root {
+:root,
+[data-theme='dark'] {
   --bg: #0d0d12;
   --bg-soft: #111118;
   --bg-panel: #16161f;
@@ -36,6 +37,37 @@
   --app-font-size-xl: 20px;
   --app-font-size-xxl: 26px;
   --app-font-size-hero: 56px;
+}
+
+[data-theme='light'] {
+  --bg: #ffffff;
+  --bg-soft: #f8f9fa;
+  --bg-panel: #ffffff;
+  --bg-elevated: #f0f1f3;
+  --bg-terminal: #fafbfc;
+  --activity-bg: #f5f6f8;
+  --titlebar-bg: #f8f9fa;
+  --editor-tab: #f0f1f3;
+  --editor-tab-active: #ffffff;
+  --list-hover: #e9eaed;
+  --list-active: rgba(139, 92, 246, 0.12);
+  --list-focus: rgba(139, 92, 246, 0.18);
+  --border: #d4d6da;
+  --border-strong: #b0b3ba;
+  --text: #1a1a2e;
+  --text-dim: #5f6570;
+  --text-muted: #8b9099;
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --accent-active: #5b21b6;
+  --accent-strong: #6d28d9;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --info: #2563eb;
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --scrollbar-thumb-hover: rgba(124, 58, 237, 0.4);
 }
 
 * {

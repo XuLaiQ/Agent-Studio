@@ -62,6 +62,7 @@ import 'monaco-editor/min/vs/editor/editor.main.css'
 export { monaco }
 
 export const AGENT_THEME = 'agent-dark-purple'
+export const AGENT_THEME_LIGHT = 'agent-light'
 
 const languageByExtension: Record<string, string> = {
   '.babelrc': 'json',
@@ -231,6 +232,44 @@ export function defineAgentTheme(): void {
       'scrollbarSlider.activeBackground': '#9D74FFAA'
     }
   })
+
+  monaco.editor.defineTheme(AGENT_THEME_LIGHT, {
+    base: 'vs',
+    inherit: true,
+    rules: [
+      { token: 'keyword', foreground: '7C3AED' },
+      { token: 'string', foreground: 'B45309' },
+      { token: 'number', foreground: '059669' },
+      { token: 'comment', foreground: '8B9099', fontStyle: 'italic' },
+      { token: 'type', foreground: 'DB2777' },
+      { token: 'class', foreground: 'DB2777' },
+      { token: 'function', foreground: '2563EB' },
+      { token: 'variable', foreground: '1A1A2E' }
+    ],
+    colors: {
+      'editor.background': '#FAFBFC',
+      'editor.foreground': '#1A1A2E',
+      'editorLineNumber.foreground': '#8B9099',
+      'editorLineNumber.activeForeground': '#5F6570',
+      'editorCursor.foreground': '#7C3AED',
+      'editor.selectionBackground': '#C4B5FD',
+      'editor.inactiveSelectionBackground': '#DDD6FE',
+      'editor.lineHighlightBackground': '#F0F1F3',
+      'editorIndentGuide.background1': '#D4D6DA',
+      'editorIndentGuide.activeBackground1': '#7C3AED',
+      'editorBracketMatch.background': '#E9EAED',
+      'editorBracketMatch.border': '#7C3AED',
+      'scrollbarSlider.background': '#00000033',
+      'scrollbarSlider.hoverBackground': '#7C3AED88',
+      'scrollbarSlider.activeBackground': '#7C3AEDAA'
+    }
+  })
+}
+
+import type { ThemeMode } from '../../stores/settings'
+
+export function getAgentTheme(theme: ThemeMode): string {
+  return theme === 'light' ? AGENT_THEME_LIGHT : AGENT_THEME
 }
 
 function extensionOf(fileName: string): string {

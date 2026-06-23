@@ -13,23 +13,41 @@ const settings = useSettingsStore()
 const stats = computed(() => tokenStore.stats)
 
 // ---- Theme constants (echarts canvas can't read CSS variables) ----
-const AXIS = '#a1a1aa'
-const SPLIT = '#2a2a38'
-const TEXT = '#f5f5f7'
-const CARD_BG = '#16161f'
-const PALETTE = ['#8b5cf6', '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#06b6d4', '#a855f7', '#eab308']
-const SEG = {
-  input: '#8b5cf6',
-  output: '#10b981',
-  cacheWrite: '#f59e0b',
-  cacheRead: '#3b82f6'
+const DARK_THEME = {
+  AXIS: '#a1a1aa',
+  SPLIT: '#2a2a38',
+  TEXT: '#f5f5f7',
+  CARD_BG: '#16161f',
+  PALETTE: ['#8b5cf6', '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#06b6d4', '#a855f7', '#eab308'],
+  SEG: {
+    input: '#8b5cf6',
+    output: '#10b981',
+    cacheWrite: '#f59e0b',
+    cacheRead: '#3b82f6'
+  }
 }
+
+const LIGHT_THEME = {
+  AXIS: '#5f6570',
+  SPLIT: '#d4d6da',
+  TEXT: '#1a1a2e',
+  CARD_BG: '#ffffff',
+  PALETTE: ['#7c3aed', '#059669', '#d97706', '#2563eb', '#dc2626', '#0891b2', '#6d28d9', '#ca8a04'],
+  SEG: {
+    input: '#7c3aed',
+    output: '#059669',
+    cacheWrite: '#d97706',
+    cacheRead: '#2563eb'
+  }
+}
+
+const chartColors = computed(() => (settings.theme === 'light' ? LIGHT_THEME : DARK_THEME))
 const chartFontXs = computed(() => Math.max(10, settings.fontSizePx - 2))
 const chartFontBase = computed(() => settings.fontSizePx)
 const tooltipBase = computed(() => ({
-  backgroundColor: CARD_BG,
-  borderColor: SPLIT,
-  textStyle: { color: TEXT, fontSize: chartFontXs.value }
+  backgroundColor: chartColors.value.CARD_BG,
+  borderColor: chartColors.value.SPLIT,
+  textStyle: { color: chartColors.value.TEXT, fontSize: chartFontXs.value }
 }))
 
 interface ModelRow extends ModelTokenUsage {
@@ -87,7 +105,7 @@ function agentLabel(type: AgentType): string {
 // ---- Chart options ----
 
 const modelShareOption = computed<EChartsCoreOption>(() => ({
-  color: PALETTE,
+  color: chartColors.value.PALETTE,
   tooltip: {
     trigger: 'item',
     ...tooltipBase.value,
@@ -98,8 +116,8 @@ const modelShareOption = computed<EChartsCoreOption>(() => ({
     type: 'scroll',
     bottom: 0,
     icon: 'circle',
-    textStyle: { color: AXIS, fontSize: chartFontXs.value },
-    pageTextStyle: { color: AXIS }
+    textStyle: { color: chartColors.value.AXIS, fontSize: chartFontXs.value },
+    pageTextStyle: { color: chartColors.value.AXIS }
   },
   series: [
     {
@@ -108,10 +126,10 @@ const modelShareOption = computed<EChartsCoreOption>(() => ({
       radius: ['44%', '70%'],
       center: ['50%', '44%'],
       avoidLabelOverlap: true,
-      itemStyle: { borderColor: CARD_BG, borderWidth: 2, borderRadius: 4 },
+      itemStyle: { borderColor: chartColors.value.CARD_BG, borderWidth: 2, borderRadius: 4 },
       label: { show: false },
       emphasis: {
-        label: { show: true, color: TEXT, fontSize: chartFontBase.value, fontWeight: 'bold', formatter: '{b}' }
+        label: { show: true, color: chartColors.value.TEXT, fontSize: chartFontBase.value, fontWeight: 'bold', formatter: '{b}' }
       },
       data: models.value.map((m) => ({ name: m.short, value: m.totalTokens }))
     }
@@ -119,6 +137,7 @@ const modelShareOption = computed<EChartsCoreOption>(() => ({
 }))
 
 const compositionOption = computed<EChartsCoreOption>(() => {
+  const SEG = chartColors.value.SEG
   const data = [
     { name: t('tokens.input'), value: totals.value.input, color: SEG.input },
     { name: t('tokens.output'), value: totals.value.output, color: SEG.output },
@@ -136,7 +155,7 @@ const compositionOption = computed<EChartsCoreOption>(() => {
       type: 'scroll',
       bottom: 0,
       icon: 'circle',
-      textStyle: { color: AXIS, fontSize: chartFontXs.value }
+      textStyle: { color: chartColors.value.AXIS, fontSize: chartFontXs.value }
     },
     series: [
       {
@@ -144,10 +163,10 @@ const compositionOption = computed<EChartsCoreOption>(() => {
         type: 'pie',
         radius: ['44%', '70%'],
         center: ['50%', '44%'],
-        itemStyle: { borderColor: CARD_BG, borderWidth: 2, borderRadius: 4 },
+        itemStyle: { borderColor: chartColors.value.CARD_BG, borderWidth: 2, borderRadius: 4 },
         label: { show: false },
         emphasis: {
-          label: { show: true, color: TEXT, fontSize: chartFontBase.value, fontWeight: 'bold', formatter: '{b}' }
+          label: { show: true, color: chartColors.value.TEXT, fontSize: chartFontBase.value, fontWeight: 'bold', formatter: '{b}' }
         },
         data: data.map((d) => ({ name: d.name, value: d.value, itemStyle: { color: d.color } }))
       }
@@ -156,6 +175,7 @@ const compositionOption = computed<EChartsCoreOption>(() => {
 })
 
 const byModelBarOption = computed<EChartsCoreOption>(() => {
+  const SEG = chartColors.value.SEG
   // Reverse so the largest model sits at the top of the horizontal bar chart.
   const names = models.value.map((m) => m.short).reverse()
   const series = (
@@ -182,19 +202,19 @@ const byModelBarOption = computed<EChartsCoreOption>(() => {
       ...tooltipBase.value,
       valueFormatter: (v: number) => Number(v).toLocaleString()
     },
-    legend: { top: 0, icon: 'roundRect', itemHeight: 9, textStyle: { color: AXIS, fontSize: chartFontXs.value } },
+    legend: { top: 0, icon: 'roundRect', itemHeight: 9, textStyle: { color: chartColors.value.AXIS, fontSize: chartFontXs.value } },
     grid: { left: 8, right: 18, top: 38, bottom: 6, containLabel: true },
     xAxis: {
       type: 'value',
-      axisLabel: { color: AXIS, fontSize: chartFontXs.value, formatter: (v: number) => formatTokens(v) },
-      axisLine: { lineStyle: { color: SPLIT } },
-      splitLine: { lineStyle: { color: SPLIT, type: 'dashed' } }
+      axisLabel: { color: chartColors.value.AXIS, fontSize: chartFontXs.value, formatter: (v: number) => formatTokens(v) },
+      axisLine: { lineStyle: { color: chartColors.value.SPLIT } },
+      splitLine: { lineStyle: { color: chartColors.value.SPLIT, type: 'dashed' } }
     },
     yAxis: {
       type: 'category',
       data: names,
-      axisLabel: { color: AXIS, fontSize: chartFontXs.value },
-      axisLine: { lineStyle: { color: SPLIT } },
+      axisLabel: { color: chartColors.value.AXIS, fontSize: chartFontXs.value },
+      axisLine: { lineStyle: { color: chartColors.value.SPLIT } },
       axisTick: { show: false }
     },
     series
@@ -202,7 +222,7 @@ const byModelBarOption = computed<EChartsCoreOption>(() => {
 })
 
 const byAgentOption = computed<EChartsCoreOption>(() => ({
-  color: PALETTE,
+  color: chartColors.value.PALETTE,
   tooltip: {
     trigger: 'axis',
     axisPointer: { type: 'shadow' },
@@ -213,15 +233,15 @@ const byAgentOption = computed<EChartsCoreOption>(() => ({
   xAxis: {
     type: 'category',
     data: agentTotals.value.map((a) => a.label),
-    axisLabel: { color: AXIS, fontSize: chartFontXs.value },
-    axisLine: { lineStyle: { color: SPLIT } },
+    axisLabel: { color: chartColors.value.AXIS, fontSize: chartFontXs.value },
+    axisLine: { lineStyle: { color: chartColors.value.SPLIT } },
     axisTick: { show: false }
   },
   yAxis: {
     type: 'value',
-    axisLabel: { color: AXIS, fontSize: chartFontXs.value, formatter: (v: number) => formatTokens(v) },
-    axisLine: { lineStyle: { color: SPLIT } },
-    splitLine: { lineStyle: { color: SPLIT, type: 'dashed' } }
+    axisLabel: { color: chartColors.value.AXIS, fontSize: chartFontXs.value, formatter: (v: number) => formatTokens(v) },
+    axisLine: { lineStyle: { color: chartColors.value.SPLIT } },
+    splitLine: { lineStyle: { color: chartColors.value.SPLIT, type: 'dashed' } }
   },
   series: [
     {
@@ -230,7 +250,7 @@ const byAgentOption = computed<EChartsCoreOption>(() => ({
       itemStyle: { borderRadius: [4, 4, 0, 0] },
       data: agentTotals.value.map((a, i) => ({
         value: a.total,
-        itemStyle: { color: PALETTE[i % PALETTE.length] }
+        itemStyle: { color: chartColors.value.PALETTE[i % chartColors.value.PALETTE.length] }
       }))
     }
   ]
@@ -242,6 +262,11 @@ async function refresh(): Promise<void> {
   } catch (err) {
     ElMessage.error(err instanceof Error ? err.message : String(err))
   }
+}
+
+async function toggleTodayAndReload(): Promise<void> {
+  tokenStore.toggleToday()
+  await refresh()
 }
 
 onMounted(() => {
@@ -256,7 +281,17 @@ onMounted(() => {
         <h1>{{ t('tokens.dashboardTitle') }}</h1>
         <p>{{ t('tokens.dashboardSubtitle') }}</p>
       </div>
-      <button class="refresh-btn" type="button" :disabled="tokenStore.loading" @click="refresh">
+      <div class="dash-actions">
+        <button
+          class="today-toggle"
+          :class="{ active: tokenStore.todayOnly }"
+          type="button"
+          :disabled="tokenStore.loading"
+          @click="toggleTodayAndReload"
+        >
+          {{ t('tokens.today') }}
+        </button>
+        <button class="refresh-btn" type="button" :disabled="tokenStore.loading" @click="refresh">
         <svg viewBox="0 0 16 16" aria-hidden="true">
           <path
             d="M13 3v4H9M3 13V9h4M12.2 6A4.8 4.8 0 0 0 4 4.8M3.8 10A4.8 4.8 0 0 0 12 11.2"
@@ -269,6 +304,7 @@ onMounted(() => {
         </svg>
         <span>{{ t('tokens.refresh') }}</span>
       </button>
+      </div>
     </header>
 
     <div v-if="tokenStore.loading && !stats" class="state">{{ t('tokens.loading') }}</div>
@@ -424,6 +460,39 @@ onMounted(() => {
 .refresh-btn svg {
   width: 14px;
   height: 14px;
+}
+.dash-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.today-toggle {
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 13px;
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--bg-panel);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--app-font-size-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.today-toggle:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  color: var(--accent);
+}
+.today-toggle.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+.today-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .state {
   flex: 1;

@@ -4,6 +4,7 @@ import {
   AGENT_THEME,
   defineAgentTheme,
   ensureMonacoEnvironment,
+  getAgentTheme,
   languageForFile,
   monaco
 } from './monaco/setup'
@@ -54,7 +55,7 @@ onMounted(() => {
   model = createModel()
   editor = monaco.editor.create(host.value, {
     model,
-    theme: AGENT_THEME,
+    theme: getAgentTheme(settings.theme),
     readOnly: props.readonly,
     automaticLayout: false,
     fontFamily: 'Consolas, "Cascadia Mono", "Courier New", monospace',

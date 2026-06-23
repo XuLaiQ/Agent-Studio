@@ -5,8 +5,34 @@ import { FitAddon } from '@xterm/addon-fit'
 import { ElMessage } from 'element-plus'
 import { t } from '../i18n'
 import { useStudioStore } from '../stores/studio'
-import { useSettingsStore } from '../stores/settings'
+import { useSettingsStore, type ThemeMode } from '../stores/settings'
 import { AGENT_MODELS, liveModelCommand, type Agent, type SessionSummary } from '@shared/types'
+
+interface TerminalTheme {
+  background: string
+  foreground: string
+  cursor: string
+  selectionBackground: string
+}
+
+const TERMINAL_THEMES: Record<ThemeMode, TerminalTheme> = {
+  dark: {
+    background: '#0A0A0F',
+    foreground: '#F5F5F7',
+    cursor: '#9D74FF',
+    selectionBackground: '#4C1D95'
+  },
+  light: {
+    background: '#FAFBFC',
+    foreground: '#1A1A2E',
+    cursor: '#7C3AED',
+    selectionBackground: '#C4B5FD'
+  }
+}
+
+function getTerminalTheme(theme: ThemeMode): TerminalTheme {
+  return TERMINAL_THEMES[theme]
+}
 
 const props = defineProps<{ agent: Agent; projectPath: string }>()
 
@@ -167,12 +193,7 @@ onMounted(() => {
     fontSize: settings.terminalFontSize,
     cursorBlink: true,
     allowProposedApi: true,
-    theme: {
-      background: '#0A0A0F',
-      foreground: '#F5F5F7',
-      cursor: '#9D74FF',
-      selectionBackground: '#4C1D95'
-    }
+    theme: getTerminalTheme(settings.theme)
   })
   fit = new FitAddon()
   term.loadAddon(fit)
@@ -221,6 +242,15 @@ onMounted(() => {
         if (!term) return
         term.options.fontSize = fontSize
         doFit()
+      }
+    )
+  )
+  cleanups.push(
+    watch(
+      () => settings.theme,
+      (theme) => {
+        if (!term) return
+        term.options.theme = getTerminalTheme(theme)
       }
     )
   )

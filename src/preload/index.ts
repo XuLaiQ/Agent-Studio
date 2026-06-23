@@ -119,7 +119,7 @@ const api = {
     ipcRenderer.invoke('version:createBranch', input),
 
   // Token usage statistics
-  getTokenUsageStats: (): Promise<TokenUsageStats> => ipcRenderer.invoke('tokens:stats'),
+  getTokenUsageStats: (todayOnly?: boolean): Promise<TokenUsageStats> => ipcRenderer.invoke('tokens:stats', todayOnly ?? false),
 
   // PTY control
   startPty: (input: PtyStartInput): void => ipcRenderer.send('pty:start', input),

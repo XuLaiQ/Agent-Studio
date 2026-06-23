@@ -222,7 +222,7 @@ export function registerIpc(): void {
     createBranch(input)
   )
 
-  ipcMain.handle('tokens:stats', () => collectTokenUsage())
+  ipcMain.handle('tokens:stats', (_event, todayOnly?: boolean) => collectTokenUsage(todayOnly ?? false))
 
   // ---- PTY / terminal ----
   ipcMain.on('pty:start', (event, input: PtyStartInput) => {

@@ -21,6 +21,41 @@ interface FileCacheEntry {
 
 const fileCache = new Map<string, FileCacheEntry>()
 
+/** Timestamp helpers for "today" filtering. */
+const TODAY_START_MS = (() => {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
+})()
+
+function isToday(ts: number): boolean {
+  return ts >= TODAY_START_MS
+}
+
+const TIMESTAMP_FIELDS = ['timestamp', 'created_at', 'createdAt', 'date', 'time', 'ts']
+
+/** Try to extract a millisecond epoch from a record's common timestamp fields. */
+function extractTimestamp(rec: Record<string, unknown>): number | null {
+  for (const field of TIMESTAMP_FIELDS) {
+    const raw = rec[field]
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      return raw < 1e12 ? raw * 1000 : raw
+    }
+    if (typeof raw === 'string' && raw) {
+      const parsed = Date.parse(raw)
+      if (Number.isFinite(parsed)) return parsed
+    }
+  }
+  return null
+}
+
+/** Returns true when the record should be skipped because todayOnly is active and the record is not from today. */
+function skipByDate(rec: Record<string, unknown>, todayOnly: boolean): boolean {
+  if (!todayOnly) return false
+  const ts = extractTimestamp(rec)
+  return ts === null || !isToday(ts)
+}
+
 function emptyModelUsage(model: string): ModelTokenUsage {
   return {
     model,
@@ -113,7 +148,7 @@ function reasonixUsageFile(): string {
 }
 
 /** Sum the per-model usage recorded in a single Claude JSONL transcript. */
-function parseClaudeTranscript(content: string): ModelSums {
+function parseClaudeTranscript(content: string, todayOnly = false): ModelSums {
   const sums: ModelSums = new Map()
 
   for (const line of content.split('\n')) {
@@ -125,6 +160,7 @@ function parseClaudeTranscript(content: string): ModelSums {
       continue
     }
     if (rec.type !== 'assistant') continue
+    if (skipByDate(rec, todayOnly)) continue
 
     const message = rec.message as
       | { model?: unknown; usage?: Record<string, unknown> }
@@ -147,7 +183,7 @@ function parseClaudeTranscript(content: string): ModelSums {
   return sums
 }
 
-function parseCodexTranscript(content: string, fallbackModel: string): ModelSums {
+function parseCodexTranscript(content: string, fallbackModel: string, todayOnly = false): ModelSums {
   const records: Record<string, unknown>[] = []
   let model = fallbackModel
 
@@ -159,6 +195,7 @@ function parseCodexTranscript(content: string, fallbackModel: string): ModelSums
     } catch {
       continue
     }
+    if (skipByDate(rec, todayOnly)) continue
     records.push(rec)
 
     if (rec.type === 'turn_context') {
@@ -191,7 +228,7 @@ function parseCodexTranscript(content: string, fallbackModel: string): ModelSums
   return sums
 }
 
-function parseReasonixUsage(content: string): ModelSums {
+function parseReasonixUsage(content: string, todayOnly = false): ModelSums {
   const sums: ModelSums = new Map()
 
   for (const line of content.split('\n')) {
@@ -202,6 +239,7 @@ function parseReasonixUsage(content: string): ModelSums {
     } catch {
       continue
     }
+    if (skipByDate(rec, todayOnly)) continue
 
     const model = typeof rec.model === 'string' && rec.model ? rec.model : 'unknown'
     const cacheRead = toNumber(rec.cacheHitTokens)
@@ -215,10 +253,12 @@ function parseReasonixUsage(content: string): ModelSums {
   return sums
 }
 
-/** Read + parse one transcript, reusing the cache when the file is unchanged. */
+/** Read + parse one transcript, reusing the cache when the file is unchanged.
+ *  The cache key includes todayOnly so switching modes invalidates the cache. */
 async function readTranscriptSums(
   filePath: string,
-  parser: (content: string) => ModelSums = parseClaudeTranscript,
+  parser: (content: string, todayOnly: boolean) => ModelSums,
+  todayOnly: boolean,
   cacheScope = 'default'
 ): Promise<ModelSums> {
   let mtimeMs = 0
@@ -231,14 +271,14 @@ async function readTranscriptSums(
     return new Map()
   }
 
-  const cacheKey = `${cacheScope}:${filePath}`
+  const cacheKey = `${cacheScope}:${todayOnly ? 'today' : 'all'}:${filePath}`
   const cached = fileCache.get(cacheKey)
   if (cached && cached.mtimeMs === mtimeMs && cached.size === size) {
     return cached.sums
   }
 
   try {
-    const sums = parser(await readFile(filePath, 'utf8'))
+    const sums = parser(await readFile(filePath, 'utf8'), todayOnly)
     fileCache.set(cacheKey, { mtimeMs, size, sums })
     return sums
   } catch {
@@ -247,10 +287,10 @@ async function readTranscriptSums(
 }
 
 /** Aggregate Claude usage across every local transcript folder. */
-async function collectClaudeUsage(): Promise<ModelSums> {
+async function collectClaudeUsage(todayOnly: boolean): Promise<ModelSums> {
   const total: ModelSums = new Map()
   const files = await listFilesRecursive(claudeProjectsDir(), (file) => file.endsWith('.jsonl'))
-  const perFile = await Promise.all(files.map((file) => readTranscriptSums(file)))
+  const perFile = await Promise.all(files.map((file) => readTranscriptSums(file, parseClaudeTranscript, todayOnly)))
   for (const sums of perFile) mergeSums(total, sums)
 
   return total
@@ -267,7 +307,7 @@ async function readCodexModel(): Promise<string> {
 }
 
 /** Aggregate Codex usage from ~/.codex/sessions rollout JSONL files. */
-async function collectCodexUsage(): Promise<ModelSums> {
+async function collectCodexUsage(todayOnly: boolean): Promise<ModelSums> {
   const total: ModelSums = new Map()
   const model = await readCodexModel()
   const files = await listFilesRecursive(
@@ -279,7 +319,8 @@ async function collectCodexUsage(): Promise<ModelSums> {
     files.map((file) =>
       readTranscriptSums(
         file,
-        (content) => parseCodexTranscript(content, model),
+        (content, td) => parseCodexTranscript(content, model, td),
+        todayOnly,
         `codex:${model}`
       )
     )
@@ -290,10 +331,11 @@ async function collectCodexUsage(): Promise<ModelSums> {
 }
 
 /** Aggregate Reasonix usage from ~/.reasonix/usage.jsonl. */
-async function collectReasonixUsage(): Promise<ModelSums> {
+async function collectReasonixUsage(todayOnly: boolean): Promise<ModelSums> {
   return readTranscriptSums(
     reasonixUsageFile(),
-    parseReasonixUsage,
+    (content, td) => parseReasonixUsage(content, td),
+    todayOnly,
     'reasonix'
   )
 }
@@ -313,11 +355,11 @@ function finalizeAgent(type: AgentType, sums: ModelSums, supported: boolean): Ag
  * Claude, Codex, and Reasonix expose parseable local usage records. Other agent
  * types are reported with an empty, `supported: false` entry until wired.
  */
-export async function collectTokenUsage(): Promise<TokenUsageStats> {
+export async function collectTokenUsage(todayOnly = false): Promise<TokenUsageStats> {
   const [claudeSums, codexSums, reasonixSums] = await Promise.all([
-    collectClaudeUsage(),
-    collectCodexUsage(),
-    collectReasonixUsage()
+    collectClaudeUsage(todayOnly),
+    collectCodexUsage(todayOnly),
+    collectReasonixUsage(todayOnly)
   ])
 
   const agents: AgentTokenUsage[] = (Object.keys(AGENT_COMMANDS) as AgentType[]).map((type) => {
