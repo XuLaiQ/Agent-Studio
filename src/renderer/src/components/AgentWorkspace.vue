@@ -339,19 +339,9 @@ async function closeAllAgents(): Promise<void> {
   border: 0;
   border-radius: 0;
   background: var(--bg);
-  border-left: 3px solid var(--text-muted);
 }
 .terminal-panel.active {
   box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.75);
-}
-.terminal-panel.running {
-  border-left-color: var(--success);
-}
-.terminal-panel.idle {
-  border-left-color: var(--text-muted);
-}
-.terminal-panel.error {
-  border-left-color: var(--danger);
 }
 .terminal-panel.dragging {
   opacity: 0.55;

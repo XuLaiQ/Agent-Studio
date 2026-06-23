@@ -197,7 +197,13 @@ function handleDeletedEntry(node: FileNode): void {
 onMounted(() => {
   leftWidth.value = clampLeftWidth(leftWidth.value)
   store.loadProjects()
+  window.studio?.setTitleBarTheme?.(settings.theme)
 })
+
+watch(
+  () => settings.theme,
+  (theme) => window.studio?.setTitleBarTheme?.(theme)
+)
 
 onBeforeUnmount(() => stopResize())
 
@@ -232,12 +238,22 @@ watch(sidebarView, () => {
 <template>
   <el-config-provider :locale="elementLocale">
     <div class="app-shell" :style="appStyle" :data-theme="settings.theme">
-      <header class="header">
-        <span class="logo">Agent Studio</span>
-        <span class="subtitle">{{ t('app.subtitle') }}</span>
+      <div class="titlebar">
+        <svg class="titlebar-logo" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M12 2.5 21 7.5v9L12 21.5 3 16.5v-9L12 2.5Z"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linejoin="round"
+          />
+          <circle cx="12" cy="12" r="2.6" fill="currentColor" />
+          <circle cx="12" cy="6.2" r="1.2" fill="currentColor" />
+          <circle cx="17" cy="14.9" r="1.2" fill="currentColor" />
+          <circle cx="7" cy="14.9" r="1.2" fill="currentColor" />
+        </svg>
         <div class="spacer" />
-      </header>
-
+      </div>
       <div class="body">
         <nav class="activity-bar" aria-label="Workbench">
           <div class="activity-main">
@@ -487,31 +503,25 @@ watch(sidebarView, () => {
 </template>
 
 <style scoped>
-.header {
+.titlebar {
   height: 34px;
+  flex: 0 0 34px;
   display: flex;
   align-items: center;
-  gap: 10px;
   padding: 0 12px;
   background: var(--titlebar-bg);
   border-bottom: 1px solid var(--border);
   -webkit-app-region: drag;
+  user-select: none;
 }
-.logo {
-  color: var(--text);
-  font-size: var(--app-font-size-sm);
-  font-weight: 600;
-}
-.subtitle {
-  color: var(--text-dim);
-  font-size: var(--app-font-size-sm);
+.titlebar-logo {
+  width: 18px;
+  height: 18px;
+  color: var(--accent);
+  flex: 0 0 auto;
 }
 .spacer {
   flex: 1;
-}
-.lang-select {
-  width: 110px;
-  -webkit-app-region: no-drag;
 }
 .body {
   flex: 1;

@@ -85,6 +85,10 @@ const api = {
   readClipboardText: (): string => clipboard.readText(),
   writeClipboardText: (text: string): void => clipboard.writeText(text),
 
+  // Window chrome
+  setTitleBarTheme: (theme: 'dark' | 'light'): void =>
+    ipcRenderer.send('window:setTitleBarTheme', theme),
+
   // Version control
   scanVersionControl: (): Promise<VersionScanResult> => ipcRenderer.invoke('version:scan'),
   listVersionConnections: (): Promise<VersionConnection[]> =>

@@ -1,7 +1,14 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { registerIpc } from './ipc'
 import { ptyManager } from './ptyManager'
+
+// Title bar overlay colors per theme. Keep in sync with --titlebar-bg / --text
+// in src/renderer/src/styles.css so the native caption buttons blend in.
+const TITLE_BAR_OVERLAY = {
+  dark: { color: '#111118', symbolColor: '#f5f5f7', height: 34 },
+  light: { color: '#f8f9fa', symbolColor: '#1a1a2e', height: 34 }
+} as const
 
 // Chromium logs noisy "Unable to move the cache" / "Gpu Cache Creation failed"
 // errors on Windows when its default cache dir isn't writable (stale lock from a
@@ -19,6 +26,8 @@ function createWindow(): void {
     show: false,
     title: 'Agent Studio',
     backgroundColor: '#1e1e2e',
+    titleBarStyle: 'hidden',
+    titleBarOverlay: TITLE_BAR_OVERLAY.dark,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -47,6 +56,13 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   registerIpc()
+
+  // Recolor the native caption-button overlay when the renderer toggles theme.
+  ipcMain.on('window:setTitleBarTheme', (event, theme: 'dark' | 'light') => {
+    const sender = BrowserWindow.fromWebContents(event.sender)
+    sender?.setTitleBarOverlay(TITLE_BAR_OVERLAY[theme] ?? TITLE_BAR_OVERLAY.dark)
+  })
+
   createWindow()
 
   app.on('activate', () => {
