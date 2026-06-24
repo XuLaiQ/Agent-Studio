@@ -36,7 +36,18 @@ function createWindow(): void {
     }
   })
 
-  win.on('ready-to-show', () => win.show())
+  win.on('ready-to-show', () => {
+    console.log('Window ready to show')
+    win.show()
+  })
+
+  win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription)
+  })
+
+  win.webContents.on('crashed', () => {
+    console.error('Renderer process crashed')
+  })
 
   win.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
@@ -45,13 +56,26 @@ function createWindow(): void {
 
   // electron-vite injects ELECTRON_RENDERER_URL in dev.
   if (process.env['ELECTRON_RENDERER_URL']) {
+    console.log('Loading dev URL:', process.env['ELECTRON_RENDERER_URL'])
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    win.loadFile(join(__dirname, '../renderer/index.html'))
+    const indexPath = join(__dirname, '../renderer/index.html')
+    console.log('Loading file:', indexPath)
+    win.loadFile(indexPath)
   }
 
   // 创建窗口后，移除菜单
   win.setMenu(null);
+
+  // 生产环境中显示开发者工具用于调试
+  if (!process.env['ELECTRON_RENDERER_URL']) {
+    // 延迟打开，等待窗口完全加载
+    setTimeout(() => {
+      if (!win.isDestroyed()) {
+        win.webContents.openDevTools()
+      }
+    }, 2000)
+  }
 }
 
 app.whenReady().then(() => {
@@ -68,6 +92,10 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+})
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught exception:', error)
 })
 
 app.on('window-all-closed', () => {
