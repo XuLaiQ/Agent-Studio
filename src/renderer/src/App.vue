@@ -230,9 +230,10 @@ watch(
   }
 )
 
-watch(sidebarView, () => {
+function selectSidebar(view: typeof sidebarView.value): void {
+  sidebarView.value = view
   showSettingsPage.value = false
-})
+}
 </script>
 
 <template>
@@ -262,7 +263,7 @@ watch(sidebarView, () => {
             class="activity-item"
             :class="{ active: sidebarView === 'explorer' }"
             :title="t('explorer.title')"
-            @click="sidebarView = 'explorer'"
+            @click="selectSidebar('explorer')"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -279,7 +280,7 @@ watch(sidebarView, () => {
             class="activity-item"
             :class="{ active: sidebarView === 'sourceControl' }"
             :title="t('version.title')"
-            @click="sidebarView = 'sourceControl'"
+            @click="selectSidebar('sourceControl')"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="7" cy="5" r="2" fill="currentColor" />
@@ -299,7 +300,7 @@ watch(sidebarView, () => {
             class="activity-item"
             :class="{ active: sidebarView === 'workflow' }"
             :title="t('workflow.title')"
-            @click="sidebarView = 'workflow'"
+            @click="selectSidebar('workflow')"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <rect x="3" y="4" width="7" height="5" rx="1" fill="none" stroke="currentColor" stroke-width="1.6" />
@@ -319,7 +320,7 @@ watch(sidebarView, () => {
             class="activity-item"
             :class="{ active: sidebarView === 'orchestrator' }"
             :title="t('orchestrator.title')"
-            @click="sidebarView = 'orchestrator'"
+            @click="selectSidebar('orchestrator')"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="5" r="2.2" fill="none" stroke="currentColor" stroke-width="1.6" />
@@ -340,7 +341,7 @@ watch(sidebarView, () => {
             class="activity-item"
             :class="{ active: sidebarView === 'tokens' }"
             :title="t('tokens.title')"
-            @click="sidebarView = 'tokens'"
+            @click="selectSidebar('tokens')"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <rect x="3.5" y="13" width="4" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="1.6" />

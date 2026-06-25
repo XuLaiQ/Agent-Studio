@@ -24,8 +24,9 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     show: false,
+    x: 100,
+    y: 100,
     title: 'Agent Studio',
-    backgroundColor: '#1e1e2e',
     titleBarStyle: 'hidden',
     titleBarOverlay: TITLE_BAR_OVERLAY.dark,
     webPreferences: {
@@ -37,8 +38,8 @@ function createWindow(): void {
   })
 
   win.on('ready-to-show', () => {
-    console.log('Window ready to show')
     win.show()
+    win.focus()
   })
 
   win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
@@ -66,16 +67,6 @@ function createWindow(): void {
 
   // 创建窗口后，移除菜单
   win.setMenu(null);
-
-  // 生产环境中显示开发者工具用于调试
-  if (!process.env['ELECTRON_RENDERER_URL']) {
-    // 延迟打开，等待窗口完全加载
-    setTimeout(() => {
-      if (!win.isDestroyed()) {
-        win.webContents.openDevTools()
-      }
-    }, 2000)
-  }
 }
 
 app.whenReady().then(() => {

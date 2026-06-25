@@ -30,6 +30,12 @@ class Store {
   private data: StoreData = { projects: [], versionConnections: [], workflows: [] }
 
   constructor() {
+    // Delay userData initialization until app is ready
+    this.file = ''
+  }
+
+  private ensureInitialized(): void {
+    if (this.file) return
     const dir = app.getPath('userData')
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
     this.file = join(dir, 'agent-studio.json')
@@ -37,6 +43,7 @@ class Store {
   }
 
   private load(): void {
+    if (!this.file) return
     try {
       if (existsSync(this.file)) {
         this.data = JSON.parse(readFileSync(this.file, 'utf-8'))
@@ -51,11 +58,13 @@ class Store {
   }
 
   private persist(): void {
+    this.ensureInitialized()
     // Agents always start a session as 'idle'; runtime status is not persisted.
     writeFileSync(this.file, JSON.stringify(this.data, null, 2), 'utf-8')
   }
 
   getProjects(): Project[] {
+    this.ensureInitialized()
     return this.data.projects
   }
 
@@ -122,6 +131,7 @@ class Store {
   }
 
   getVersionConnections(): VersionConnection[] {
+    this.ensureInitialized()
     return this.data.versionConnections
   }
 
@@ -144,12 +154,14 @@ class Store {
   }
 
   getWorkflows(projectId?: string): Workflow[] {
+    this.ensureInitialized()
     return projectId
       ? this.data.workflows.filter((w) => w.projectId === projectId)
       : this.data.workflows
   }
 
   getWorkflow(id: string): Workflow | undefined {
+    this.ensureInitialized()
     return this.data.workflows.find((w) => w.id === id)
   }
 

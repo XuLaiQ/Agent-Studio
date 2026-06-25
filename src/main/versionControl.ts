@@ -471,12 +471,16 @@ export async function unstageFile(input: VersionFileInput): Promise<ProjectVersi
 
 export async function stageAll(input: VersionProjectInput): Promise<ProjectVersionStatus> {
   const project = findProject(input)
+  // Refresh status before staging to ensure git index is current
+  await run('git', ['-C', project.path, 'status']).catch(() => '')
   await run('git', ['-C', project.path, 'add', '--all'])
   return scanProject(project)
 }
 
 export async function unstageAll(input: VersionProjectInput): Promise<ProjectVersionStatus> {
   const project = findProject(input)
+  // Refresh status before unstaging to ensure git index is current
+  await run('git', ['-C', project.path, 'status']).catch(() => '')
   await run('git', ['-C', project.path, 'restore', '--staged', '--', '.'])
   return scanProject(project)
 }

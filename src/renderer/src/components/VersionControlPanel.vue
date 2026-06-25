@@ -401,7 +401,7 @@ onMounted(() => {
 
       <div class="group">
         <div class="group-head">
-          <span>{{ t('version.staged') }} 路 {{ versionStore.stagedChanges.length }}</span>
+          <span>{{ t('version.staged') }} {{ versionStore.stagedChanges.length }}</span>
           <button
             v-if="versionStore.stagedChanges.length"
             class="icon-action"
@@ -440,7 +440,7 @@ onMounted(() => {
 
       <div class="group">
         <div class="group-head">
-          <span>{{ t('version.changes') }} 路 {{ versionStore.unstagedChanges.length }}</span>
+          <span>{{ t('version.changes') }} {{ versionStore.unstagedChanges.length }}</span>
           <button
             v-if="versionStore.unstagedChanges.length"
             class="icon-action"
@@ -478,7 +478,7 @@ onMounted(() => {
       </div>
 
       <details class="details" open>
-        <summary>{{ t('version.localBranches') }} 路 {{ activeStatus.localBranches.length }}</summary>
+        <summary>{{ t('version.localBranches') }} {{ activeStatus.localBranches.length }}</summary>
         <button
           v-for="branch in activeStatus.localBranches"
           :key="branch.name"
@@ -500,7 +500,7 @@ onMounted(() => {
       </details>
 
       <details class="details">
-        <summary>{{ t('version.remoteBranches') }} 路 {{ activeStatus.remoteBranches.length }}</summary>
+        <summary>{{ t('version.remoteBranches') }} {{ activeStatus.remoteBranches.length }}</summary>
         <button
           v-for="branch in activeStatus.remoteBranches"
           :key="branch.name"
@@ -514,7 +514,7 @@ onMounted(() => {
       </details>
 
       <details class="details" open>
-        <summary>{{ t('version.commitHistory') }} 路 {{ activeStatus.commitHistory.length }}</summary>
+        <summary>{{ t('version.commitHistory') }} {{ activeStatus.commitHistory.length }}</summary>
         <div v-if="!activeStatus.commitHistory.length" class="empty small">
           {{ t('version.noCommitHistory') }}
         </div>
@@ -580,12 +580,12 @@ onMounted(() => {
     </template>
 
     <details class="details">
-      <summary>{{ t('version.manualConnections') }} 路 {{ versionStore.connections.length }}</summary>
+      <summary>{{ t('version.manualConnections') }} {{ versionStore.connections.length }}</summary>
       <div v-for="connection in versionStore.connections" :key="connection.id" class="connection-row">
         <div>
           <div class="connection-name">{{ connection.name }}</div>
           <div class="connection-url">
-            {{ versionStore.providerLabel(connection.provider) }} 路 {{ connection.url }}
+            {{ versionStore.providerLabel(connection.provider) }} {{ connection.url }}
           </div>
         </div>
       </div>
