@@ -6,14 +6,16 @@ import {
   readSync,
   readFileSync,
   readdirSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync
 } from 'fs'
-import { basename, extname, isAbsolute, join, relative, resolve } from 'path'
+import { basename, dirname, extname, isAbsolute, join, relative, resolve } from 'path'
 import type {
   FileCreateInput,
   FileDeleteInput,
+  FileRenameInput,
   FileNode,
   FileOperationResult,
   FilePreview,
@@ -303,6 +305,18 @@ export function deleteFileSystemEntry(input: FileDeleteInput): FileOperationResu
 
   rmSync(target, { recursive: true, force: false })
   return { path: target }
+}
+
+export function renameFileSystemEntry(input: FileRenameInput): FileOperationResult {
+  const name = validateEntryName(input.newName)
+  const { root, target } = ensureInsideProject(input.projectPath, input.path)
+  if (root === target) throw new Error('The project root cannot be renamed here.')
+  const newTarget = join(dirname(target), name)
+  ensureInsideProject(root, newTarget)
+  if (existsSync(newTarget)) throw new Error('A file or folder with this name already exists.')
+
+  renameSync(target, newTarget)
+  return { path: newTarget }
 }
 
 export function writeTextFile(input: FileWriteInput): FileOperationResult {

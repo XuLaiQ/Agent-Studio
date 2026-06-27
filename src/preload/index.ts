@@ -6,6 +6,7 @@ import type {
   FileChangeEvent,
   FileCreateInput,
   FileDeleteInput,
+  FileRenameInput,
   FileOperationResult,
   FilePreview,
   FilePreviewInput,
@@ -30,6 +31,8 @@ import type {
   SessionListInput,
   SessionSummary,
   AgentStatus,
+  AgentModelCatalog,
+  AgentType,
   ProjectVersionStatus,
   VersionConnection,
   VersionBranchInput,
@@ -69,6 +72,8 @@ const api = {
     ipcRenderer.invoke('fs:create', input),
   deleteFileEntry: (input: FileDeleteInput): Promise<FileOperationResult> =>
     ipcRenderer.invoke('fs:delete', input),
+  renameFileEntry: (input: FileRenameInput): Promise<FileOperationResult> =>
+    ipcRenderer.invoke('fs:rename', input),
   writeFileContent: (input: FileWriteInput): Promise<FileOperationResult> =>
     ipcRenderer.invoke('fs:writeFile', input),
   watchProjectFiles: (projectPath: string): Promise<FileWatchResult> =>
@@ -124,6 +129,10 @@ const api = {
 
   // Token usage statistics
   getTokenUsageStats: (todayOnly?: boolean): Promise<TokenUsageStats> => ipcRenderer.invoke('tokens:stats', todayOnly ?? false),
+
+  // Model catalogs
+  listModelCatalog: (type: AgentType, command?: string): Promise<AgentModelCatalog> =>
+    ipcRenderer.invoke('models:list', type, command),
 
   // PTY control
   startPty: (input: PtyStartInput): void => ipcRenderer.send('pty:start', input),

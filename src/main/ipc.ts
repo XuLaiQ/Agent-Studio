@@ -8,9 +8,11 @@ import { taskEngine } from './taskEngine'
 import { orchestrator } from './orchestrator'
 import { listSessions } from './sessionHistory'
 import { collectTokenUsage } from './tokenStats'
+import { listModelCatalog } from './modelCatalog'
 import {
   createFileSystemEntry,
   deleteFileSystemEntry,
+  renameFileSystemEntry,
   readDir,
   readFilePreview,
   writeTextFile
@@ -35,6 +37,7 @@ import type {
   FileChangeEvent,
   FileCreateInput,
   FileDeleteInput,
+  FileRenameInput,
   FilePreviewInput,
   FileWatchResult,
   FileWriteInput,
@@ -46,6 +49,7 @@ import type {
   OrchestratorRunInput,
   OrchestrationPlan,
   PtyStartInput,
+  AgentType,
   SessionListInput,
   VersionBranchInput,
   VersionCommitInput,
@@ -187,6 +191,7 @@ export function registerIpc(): void {
   ipcMain.handle('fs:preview', (_e, input: FilePreviewInput) => readFilePreview(input))
   ipcMain.handle('fs:create', (_e, input: FileCreateInput) => createFileSystemEntry(input))
   ipcMain.handle('fs:delete', (_e, input: FileDeleteInput) => deleteFileSystemEntry(input))
+  ipcMain.handle('fs:rename', (_e, input: FileRenameInput) => renameFileSystemEntry(input))
   ipcMain.handle('fs:writeFile', (_e, input: FileWriteInput) => writeTextFile(input))
   ipcMain.handle('fs:watchProject', (event, projectPath: string) =>
     subscribeToProjectChanges(projectPath, event.sender.id)
@@ -223,6 +228,10 @@ export function registerIpc(): void {
   )
 
   ipcMain.handle('tokens:stats', (_event, todayOnly?: boolean) => collectTokenUsage(todayOnly ?? false))
+
+  ipcMain.handle('models:list', (_event, type: AgentType, command?: string) =>
+    listModelCatalog(type, command)
+  )
 
   // ---- PTY / terminal ----
   ipcMain.on('pty:start', (event, input: PtyStartInput) => {

@@ -120,7 +120,7 @@ function openContextMenu(node: FileNode, event: MouseEvent): void {
   event.stopPropagation()
 
   const menuWidth = 210
-  const menuHeight = node.isDir ? 242 : 272
+  const menuHeight = node.isDir ? 270 : 300
   contextMenu.value = {
     node,
     x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
@@ -227,6 +227,35 @@ async function createEntry(type: 'file' | 'directory'): Promise<void> {
   }
 }
 
+async function renameEntry(): Promise<void> {
+  const node = contextMenu.value?.node
+  const projectPath = store.activeProject?.path
+  if (!node || !projectPath) return
+
+  closeContextMenu()
+
+  try {
+    const { value } = await ElMessageBox.prompt(
+      t('explorer.rename.prompt'),
+      t('explorer.rename'),
+      {
+        inputValue: node.name,
+        inputPlaceholder: t('explorer.create.placeholder'),
+        confirmButtonText: t('common.save'),
+        cancelButtonText: t('common.cancel')
+      }
+    )
+    const newName = String(value ?? '').trim()
+    if (!newName || newName === node.name) return
+
+    await window.studio.renameFileEntry({ projectPath, path: node.path, newName })
+    await refreshTree()
+    ElMessage.success(t('explorer.rename.done'))
+  } catch (err) {
+    if (!isDialogCancel(err)) ElMessage.error(errorText(err))
+  }
+}
+
 async function deleteEntry(): Promise<void> {
   const node = contextMenu.value?.node
   const projectPath = store.activeProject?.path
@@ -320,6 +349,9 @@ onBeforeUnmount(() => {
       </button>
       <button type="button" @click="revealInFolder">
         {{ t('explorer.reveal') }}
+      </button>
+      <button type="button" @click="renameEntry">
+        {{ t('explorer.rename') }}
       </button>
       <div class="menu-separator" />
       <button type="button" @click="createEntry('file')">

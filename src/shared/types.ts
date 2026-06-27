@@ -65,6 +65,12 @@ export interface FileDeleteInput {
   path: string
 }
 
+export interface FileRenameInput {
+  projectPath: string
+  path: string
+  newName: string
+}
+
 export interface FileWriteInput {
   projectPath: string
   path: string
@@ -298,7 +304,50 @@ export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = Object.entries(AGENT_COMMAND
 export interface ModelOption {
   id: string
   label: string
+  description?: string
+  defaultReasoningEffort?: string
+  reasoningEfforts?: ReasoningEffortOption[]
+  defaultServiceTier?: string
+  serviceTiers?: ServiceTierOption[]
 }
+
+export interface ReasoningEffortOption {
+  id: string
+  label: string
+  description?: string
+}
+
+export interface ServiceTierOption {
+  id: string
+  label: string
+  description?: string
+}
+
+export interface AgentModelCatalog {
+  type: AgentType
+  models: ModelOption[]
+  source: 'static' | 'cli'
+  error?: string
+}
+
+const CLAUDE_REASONING_EFFORTS: ReasoningEffortOption[] = [
+  { id: 'low', label: 'Low' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'high', label: 'High' },
+  { id: 'xhigh', label: 'XHigh' },
+  { id: 'max', label: 'Max' }
+]
+
+const CODEX_REASONING_EFFORTS: ReasoningEffortOption[] = [
+  { id: 'low', label: 'Low' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'high', label: 'High' },
+  { id: 'xhigh', label: 'XHigh' }
+]
+
+const CODEX_SERVICE_TIERS: ServiceTierOption[] = [
+  { id: 'priority', label: 'Fast', description: '1.5x speed, increased usage' }
+]
 
 /**
  * Models offered in each agent's model switcher. Ids are the values passed to the
@@ -307,16 +356,26 @@ export interface ModelOption {
  */
 export const AGENT_MODELS: Record<string, ModelOption[]> = {
   claude: [
-    { id: '', label: 'Default' },
-    { id: 'opus', label: 'Opus 4.8' },
-    { id: 'sonnet', label: 'Sonnet 4.6' },
-    { id: 'haiku', label: 'Haiku 4.5' },
-    { id: 'fable', label: 'Fable 5' }
+    { id: '', label: 'Default', reasoningEfforts: CLAUDE_REASONING_EFFORTS },
+    { id: 'opus', label: 'Opus 4.8', reasoningEfforts: CLAUDE_REASONING_EFFORTS },
+    { id: 'sonnet', label: 'Sonnet 4.6', reasoningEfforts: CLAUDE_REASONING_EFFORTS },
+    { id: 'haiku', label: 'Haiku 4.5', reasoningEfforts: CLAUDE_REASONING_EFFORTS },
+    { id: 'fable', label: 'Fable 5', reasoningEfforts: CLAUDE_REASONING_EFFORTS }
   ],
   codex: [
-    { id: '', label: 'Default' },
-    { id: 'gpt-5-codex', label: 'GPT-5 Codex' },
-    { id: 'o3', label: 'o3' }
+    {
+      id: '',
+      label: 'Default',
+      reasoningEfforts: CODEX_REASONING_EFFORTS,
+      serviceTiers: CODEX_SERVICE_TIERS
+    },
+    {
+      id: 'gpt-5-codex',
+      label: 'GPT-5 Codex',
+      reasoningEfforts: CODEX_REASONING_EFFORTS,
+      serviceTiers: CODEX_SERVICE_TIERS
+    },
+    { id: 'o3', label: 'o3', reasoningEfforts: CODEX_REASONING_EFFORTS }
   ],
   gemini: [{ id: '', label: 'Default' }],
   reasonix: [{ id: '', label: 'Default' }]
@@ -325,6 +384,10 @@ export const AGENT_MODELS: Record<string, ModelOption[]> = {
 export interface AgentLaunchOptions {
   /** Model id to launch with (CLI default when empty/undefined). */
   model?: string
+  /** Reasoning effort/depth to launch with when the CLI supports it. */
+  reasoningEffort?: string
+  /** Service tier/speed to launch with when the CLI supports it. */
+  serviceTier?: string
   /** Resume an existing conversation by its session id. */
   resumeSessionId?: string
 }
@@ -335,20 +398,25 @@ export interface AgentLaunchOptions {
  * shape, so this is the single place that knows them.
  */
 export function buildAgentArgs(type: AgentType, opts: AgentLaunchOptions = {}): string[] {
-  const { model, resumeSessionId } = opts
+  const { model, reasoningEffort, resumeSessionId, serviceTier } = opts
   switch (type) {
     case 'claude':
       return [
         ...(resumeSessionId ? ['--resume', resumeSessionId] : []),
-        ...(model ? ['--model', model] : [])
+        ...(model ? ['--model', model] : []),
+        ...(reasoningEffort ? ['--effort', reasoningEffort] : [])
       ]
     case 'codex':
       // Resume is a subcommand: `codex resume <id>`.
+      const codexConfigArgs = [
+        ...(reasoningEffort ? ['-c', `model_reasoning_effort=${reasoningEffort}`] : []),
+        ...(serviceTier ? ['-c', `service_tier=${serviceTier}`] : [])
+      ]
       return resumeSessionId
-        ? ['resume', resumeSessionId, ...(model ? ['-m', model] : [])]
+        ? ['resume', ...codexConfigArgs, ...(model ? ['-m', model] : []), resumeSessionId]
         : model
-          ? ['-m', model]
-          : []
+          ? ['-m', model, ...codexConfigArgs]
+          : codexConfigArgs
     case 'gemini':
       return model ? ['-m', model] : []
     case 'reasonix':
@@ -408,6 +476,10 @@ export interface PtyStartInput {
   rows: number
   /** Launch the CLI with this model (CLI default when empty/undefined). */
   model?: string
+  /** Launch the CLI with this reasoning effort/depth when supported. */
+  reasoningEffort?: string
+  /** Launch the CLI with this speed/service tier when supported. */
+  serviceTier?: string
   /** Resume an existing conversation by its session id. */
   resumeSessionId?: string
 }

@@ -46,6 +46,8 @@ class PtyManager {
     const command = input.launchCommand?.trim() || AGENT_COMMANDS[input.type]?.command || input.type
     const args = buildAgentArgs(input.type, {
       model: input.model,
+      reasoningEffort: input.reasoningEffort,
+      serviceTier: input.serviceTier,
       resumeSessionId: input.resumeSessionId
     })
     const isWin = platform() === 'win32'
