@@ -59,6 +59,11 @@ class PtyManager {
       ? ['-NoLogo', '-NoProfile', '-Command', fullArgs]
       : ['-lc', fullArgs]
 
+    console.log(`[ptyManager.start] Spawning PTY for agent ${input.agentId}`)
+    console.log(`[ptyManager.start] Shell: ${shell}`)
+    console.log(`[ptyManager.start] Shell args:`, shellArgs)
+    console.log(`[ptyManager.start] CWD: ${input.cwd}`)
+
     let proc: pty.IPty
     try {
       proc = pty.spawn(shell, shellArgs, {
@@ -69,6 +74,7 @@ class PtyManager {
         env: { ...process.env } as Record<string, string>
       })
     } catch (err) {
+      console.error('[ptyManager.start] PTY spawn failed:', err)
       sender.send('pty:exit', { agentId: input.agentId, exitCode: -1 })
       sender.send('agent:status', { agentId: input.agentId, status: 'error' })
       console.error('[pty] spawn failed:', err)
@@ -84,6 +90,7 @@ class PtyManager {
     }
     this.sessions.set(input.agentId, session)
     sender.send('agent:status', { agentId: input.agentId, status: 'running' })
+    console.log(`[ptyManager] PTY started for agent ${input.agentId}, command: ${command} ${args.join(' ')}`)
 
     proc.onData((data) => {
       // Ignore trailing output from a proc that has already been superseded by
@@ -118,7 +125,19 @@ class PtyManager {
   }
 
   write(agentId: string, data: string): void {
-    this.sessions.get(agentId)?.proc.write(data)
+    const session = this.sessions.get(agentId)
+    if (!session) {
+      console.log(`[ptyManager.write] Session not found for agent: ${agentId}`)
+      return
+    }
+    console.log(`[ptyManager.write] Writing ${data.length} bytes to agent ${agentId}`)
+    console.log(`[ptyManager.write] Data preview:`, data.substring(0, 100))
+    try {
+      session.proc.write(data)
+      console.log(`[ptyManager.write] Write succeeded for agent ${agentId}`)
+    } catch (err) {
+      console.error(`[ptyManager.write] Write failed for agent ${agentId}:`, err)
+    }
   }
 
   /**
@@ -126,33 +145,77 @@ class PtyManager {
    * indicates its CLI has likely finished booting and is ready for input. Falls
    * back to writing anyway after `timeoutMs`. Resolves false if the session
    * never existed.
+   *
+   * For CLI startup that generates initial output, use smaller idleMs (e.g. 800ms)
+   * and smaller timeoutMs (e.g. 8000ms) to detect readiness faster.
    */
   sendWhenIdle(
     agentId: string,
     data: string,
-    idleMs = 2500,
-    timeoutMs = 30000
+    idleMs = 800,
+    timeoutMs = 8000
   ): Promise<boolean> {
     return new Promise((resolve) => {
       const session = this.sessions.get(agentId)
-      if (!session) return resolve(false)
+      if (!session) {
+        console.log(`[ptyManager.sendWhenIdle] Session not found for agent: ${agentId}`)
+        return resolve(false)
+      }
 
+      console.log(`[ptyManager.sendWhenIdle] Starting for agent ${agentId}, idleMs=${idleMs}, timeoutMs=${timeoutMs}`)
       const startedAt = Date.now()
+      let lastIdleCheck = Date.now()
+
       const timer = setInterval(() => {
         const s = this.sessions.get(agentId)
         if (!s) {
+          console.log(`[ptyManager.sendWhenIdle] Session lost for agent ${agentId}`)
           clearInterval(timer)
           return resolve(false)
         }
-        const waitedLongEnough = Date.now() - startedAt >= idleMs
-        const idle = Date.now() - s.lastDataAt >= idleMs
-        const timedOut = Date.now() - startedAt >= timeoutMs
-        if ((waitedLongEnough && idle) || timedOut) {
+
+        const timeSinceStart = Date.now() - startedAt
+        const timeSinceLastData = Date.now() - s.lastDataAt
+        const idle = timeSinceLastData >= idleMs
+        const timedOut = timeSinceStart >= timeoutMs
+
+        // Ready to send if: idle has been detected and we've waited min time,
+        // or timeout reached. Check idle continuously to catch the moment it happens.
+        if ((idle && timeSinceStart >= Math.min(idleMs * 1.5, 1000)) || timedOut) {
           clearInterval(timer)
-          s.proc.write(data)
-          resolve(true)
+          const reason = timedOut ? 'timeout' : 'idle'
+          console.log(`[ptyManager.sendWhenIdle] Ready to send to ${agentId} (reason: ${reason}, elapsed: ${timeSinceStart}ms, lastDataDelay: ${timeSinceLastData}ms)`)
+          console.log(`[ptyManager.sendWhenIdle] Data to write (${data.length} bytes):`, JSON.stringify(data.substring(0, 150)))
+          try {
+            // For long prompts, write in chunks with delays to avoid buffer overflow
+            if (data.length > 500) {
+              console.log(`[ptyManager.sendWhenIdle] Long prompt detected (${data.length} bytes), sending in chunks...`)
+              const chunks = data.match(/[\s\S]{1,200}/g) || []
+              let chunkIndex = 0
+              const sendChunk = (): void => {
+                if (chunkIndex < chunks.length) {
+                  const chunk = chunks[chunkIndex]
+                  console.log(`[ptyManager.sendWhenIdle] Sending chunk ${chunkIndex + 1}/${chunks.length} (${chunk.length} bytes)`)
+                  s.proc.write(chunk)
+                  chunkIndex++
+                  setTimeout(sendChunk, 50)
+                } else {
+                  console.log(`[ptyManager.sendWhenIdle] All chunks sent successfully to ${agentId}`)
+                  resolve(true)
+                }
+              }
+              sendChunk()
+            } else {
+              s.proc.write(data)
+              console.log(`[ptyManager.sendWhenIdle] Prompt sent successfully to ${agentId}`)
+              resolve(true)
+            }
+          } catch (err) {
+            console.error(`[ptyManager.sendWhenIdle] Failed to write to ${agentId}:`, err)
+            resolve(false)
+          }
         }
-      }, 300)
+      }, 100)
     })
   }
 

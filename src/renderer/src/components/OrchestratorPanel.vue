@@ -10,6 +10,7 @@ const store = useStudioStore()
 const orch = useOrchestratorStore()
 const settings = useSettingsStore()
 const idleSeconds = ref(8)
+const autoExecute = ref(true)
 
 // Same option set (and default = first) as the Add Agent dialog.
 const agentTypes = computed(() => settings.enabledAgentConfigs)
@@ -32,8 +33,11 @@ const isBusy = computed(() => orch.phase === 'planning' || orch.phase === 'runni
 
 function generate(): void {
   if (!orch.goal.trim()) return
-  const config = agentConfig(masterType.value)
-  if (config) orch.generatePlan(config)
+  const masterConfig = agentConfig(masterType.value)
+  const subConfig = agentConfig(subAgentType.value)
+  if (masterConfig && subConfig) {
+    orch.generatePlan(masterConfig, autoExecute.value, subConfig, Math.max(1, idleSeconds.value) * 1000)
+  }
 }
 
 function executePlan(): void {
@@ -99,6 +103,20 @@ watch(
               {{ config.name }}
             </option>
           </select>
+        </div>
+        <div class="orch-type-row">
+          <label>
+            <input
+              v-model="autoExecute"
+              type="checkbox"
+              :disabled="isBusy"
+            />
+            {{ t('orchestrator.autoExecute') }}
+          </label>
+        </div>
+        <div v-if="autoExecute" class="orch-idle">
+          <label>{{ t('orchestrator.idleSeconds') }}</label>
+          <input v-model.number="idleSeconds" type="number" min="1" :disabled="isBusy" />
         </div>
         <button
           class="orch-btn primary"
@@ -251,6 +269,14 @@ watch(
 }
 .orch-type-row label {
   flex: 0 0 64px;
+}
+.orch-type-row input[type='checkbox'] {
+  margin-right: 6px;
+  cursor: pointer;
+}
+.orch-type-row input[type='checkbox']:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .orch-type-select {
   flex: 1;

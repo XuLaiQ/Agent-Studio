@@ -174,7 +174,7 @@ export function readDir(dirPath: string): FileNode[] {
 
 function ensureInsideProject(projectPath: string, targetPath: string): { root: string; target: string } {
   const root = resolve(projectPath)
-  const target = resolve(targetPath)
+  const target = isAbsolute(targetPath) ? resolve(targetPath) : resolve(root, targetPath)
   const rel = relative(root, target)
 
   if (rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))) {

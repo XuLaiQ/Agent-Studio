@@ -277,6 +277,16 @@ function startSession(opts: { resumeSessionId?: string } = {}): void {
   })
 }
 
+async function attachOrStartSession(): Promise<void> {
+  if (started || !term) return
+  if (await window.studio.isPtyRunning(props.agent.id)) {
+    started = true
+    hasPendingLaunchSettings.value = false
+    return
+  }
+  startSession()
+}
+
 function pasteClipboard(): void {
   const text = window.studio.readClipboardText()
   if (!text) return
@@ -357,7 +367,7 @@ onMounted(() => {
 
   document.addEventListener('click', closePopovers)
 
-  startSession()
+  void attachOrStartSession()
 })
 
 onBeforeUnmount(() => {
