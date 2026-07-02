@@ -8,7 +8,6 @@ import { taskEngine } from './taskEngine'
 import { orchestrator } from './orchestrator'
 import { listSessions } from './sessionHistory'
 import { collectTokenUsage } from './tokenStats'
-import { listModelCatalog } from './modelCatalog'
 import {
   createFileSystemEntry,
   deleteFileSystemEntry,
@@ -49,7 +48,6 @@ import type {
   OrchestratorRunInput,
   OrchestrationPlan,
   PtyStartInput,
-  AgentType,
   SessionListInput,
   VersionBranchInput,
   VersionCommitInput,
@@ -228,10 +226,6 @@ export function registerIpc(): void {
   )
 
   ipcMain.handle('tokens:stats', (_event, todayOnly?: boolean) => collectTokenUsage(todayOnly ?? false))
-
-  ipcMain.handle('models:list', (_event, type: AgentType, command?: string) =>
-    listModelCatalog(type, command)
-  )
 
   // ---- PTY / terminal ----
   ipcMain.on('pty:start', (event, input: PtyStartInput) => {

@@ -19,7 +19,13 @@ const store = useStudioStore()
 const roots = ref<FileNode[]>([])
 const expanded = ref<Set<string>>(new Set())
 const childrenCache = ref<Record<string, FileNode[]>>({})
-const contextMenu = ref<{ node: FileNode; x: number; y: number } | null>(null)
+const contextMenu = ref<{
+  node: FileNode | null
+  parentPath: string
+  targetPath: string
+  x: number
+  y: number
+} | null>(null)
 
 let refreshTimer: ReturnType<typeof window.setTimeout> | null = null
 let pollTimer: ReturnType<typeof window.setInterval> | null = null
@@ -115,16 +121,41 @@ async function toggle(node: FileNode): Promise<void> {
   }
 }
 
+function menuPosition(event: MouseEvent, menuHeight: number): { x: number; y: number } {
+  const menuWidth = 210
+  return {
+    x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
+    y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8))
+  }
+}
+
 function openContextMenu(node: FileNode, event: MouseEvent): void {
   event.preventDefault()
   event.stopPropagation()
 
-  const menuWidth = 210
   const menuHeight = node.isDir ? 270 : 300
+  const position = menuPosition(event, menuHeight)
   contextMenu.value = {
     node,
-    x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
-    y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8))
+    parentPath: createParentFor(node),
+    targetPath: node.path,
+    ...position
+  }
+}
+
+function openProjectContextMenu(event: MouseEvent): void {
+  const projectPath = store.activeProject?.path
+  if (!projectPath) return
+
+  event.preventDefault()
+  event.stopPropagation()
+
+  const position = menuPosition(event, 190)
+  contextMenu.value = {
+    node: null,
+    parentPath: projectPath,
+    targetPath: projectPath,
+    ...position
   }
 }
 
@@ -163,10 +194,10 @@ function createParentFor(node: FileNode): string {
 }
 
 function copyPath(kind: 'relative' | 'absolute'): void {
-  const node = contextMenu.value?.node
-  if (!node) return
+  const menu = contextMenu.value
+  if (!menu) return
 
-  const path = kind === 'relative' ? relativePathFor(node.path) : node.path
+  const path = kind === 'relative' ? relativePathFor(menu.targetPath) : menu.targetPath
   window.studio.writeClipboardText(path)
   closeContextMenu()
   ElMessage.success(
@@ -183,11 +214,11 @@ function openPreviewFromMenu(): void {
 }
 
 function revealInFolder(): void {
-  const node = contextMenu.value?.node
-  if (!node) return
+  const menu = contextMenu.value
+  if (!menu) return
 
   closeContextMenu()
-  window.studio.revealInFolder(node.path)
+  window.studio.revealInFolder(menu.targetPath)
 }
 
 function errorText(err: unknown): string {
@@ -199,11 +230,11 @@ function isDialogCancel(err: unknown): boolean {
 }
 
 async function createEntry(type: 'file' | 'directory'): Promise<void> {
-  const node = contextMenu.value?.node
+  const menu = contextMenu.value
   const projectPath = store.activeProject?.path
-  if (!node || !projectPath) return
+  if (!menu || !projectPath) return
 
-  const parentPath = createParentFor(node)
+  const parentPath = menu.parentPath
   closeContextMenu()
 
   try {
@@ -315,10 +346,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="explorer">
+  <div class="explorer" @contextmenu="openProjectContextMenu">
     <div class="section-head">{{ t('explorer.title') }}</div>
     <div v-if="!store.activeProject" class="empty">{{ t('explorer.empty') }}</div>
-    <ul v-else class="tree">
+    <ul v-else class="tree" @contextmenu.prevent.stop="openProjectContextMenu">
       <FileRow
         v-for="node in roots"
         :key="node.path"
@@ -338,7 +369,7 @@ onBeforeUnmount(() => {
       @click.stop
       @contextmenu.prevent.stop
     >
-      <button v-if="!contextMenu.node.isDir" type="button" @click="openPreviewFromMenu">
+      <button v-if="contextMenu.node && !contextMenu.node.isDir" type="button" @click="openPreviewFromMenu">
         {{ t('explorer.preview') }}
       </button>
       <button type="button" @click="copyPath('relative')">
@@ -350,7 +381,7 @@ onBeforeUnmount(() => {
       <button type="button" @click="revealInFolder">
         {{ t('explorer.reveal') }}
       </button>
-      <button type="button" @click="renameEntry">
+      <button v-if="contextMenu.node" type="button" @click="renameEntry">
         {{ t('explorer.rename') }}
       </button>
       <div class="menu-separator" />
@@ -360,8 +391,8 @@ onBeforeUnmount(() => {
       <button type="button" @click="createEntry('directory')">
         {{ t('explorer.create.folder') }}
       </button>
-      <div class="menu-separator" />
-      <button type="button" class="danger" @click="deleteEntry">
+      <div v-if="contextMenu.node" class="menu-separator" />
+      <button v-if="contextMenu.node" type="button" class="danger" @click="deleteEntry">
         {{ t('explorer.delete') }}
       </button>
     </div>

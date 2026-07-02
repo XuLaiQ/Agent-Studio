@@ -44,12 +44,16 @@ class PtyManager {
     this.kill(input.agentId)
 
     const command = input.launchCommand?.trim() || AGENT_COMMANDS[input.type]?.command || input.type
-    const args = buildAgentArgs(input.type, {
-      model: input.model,
-      reasoningEffort: input.reasoningEffort,
-      serviceTier: input.serviceTier,
-      resumeSessionId: input.resumeSessionId
-    })
+    const args = buildAgentArgs(
+      input.type,
+      {
+        model: input.model,
+        reasoningEffort: input.reasoningEffort,
+        serviceTier: input.serviceTier,
+        resumeSessionId: input.resumeSessionId
+      },
+      command
+    )
     const isWin = platform() === 'win32'
     // On Windows the bare command often needs the shell to resolve PATH/.cmd
     // shims that npm-installed CLIs use, so launch through the shell.

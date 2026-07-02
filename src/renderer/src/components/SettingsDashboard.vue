@@ -8,7 +8,7 @@ import {
   LOCALE_OPTIONS,
   type Locale
 } from '../i18n'
-import type { AgentConfig } from '@shared/types'
+import type { AgentConfig, ModelOption } from '@shared/types'
 
 const THEME_OPTIONS: { value: ThemeMode; labelKey: string }[] = [
   { value: 'dark', labelKey: 'settings.theme.dark' },
@@ -20,6 +20,7 @@ const settings = useSettingsStore()
 const editingAgentId = ref<string | null>(null)
 const agentDraftName = ref('')
 const agentDraftCommand = ref('')
+const agentDraftModels = ref('')
 
 const canSaveAgentConfig = computed(
   () => agentDraftName.value.trim().length > 0 && agentDraftCommand.value.trim().length > 0
@@ -29,22 +30,52 @@ function startAddAgentConfig(): void {
   editingAgentId.value = null
   agentDraftName.value = ''
   agentDraftCommand.value = ''
+  agentDraftModels.value = ''
 }
 
 function startEditAgentConfig(config: AgentConfig): void {
   editingAgentId.value = config.id
   agentDraftName.value = config.name
   agentDraftCommand.value = config.command
+  agentDraftModels.value = config.modelSource === 'manual' ? formatModels(config.models) : ''
 }
 
 function saveAgentConfig(): void {
   if (!canSaveAgentConfig.value) return
+  const existing = settings.agentConfigs.find((config) => config.id === editingAgentId.value)
+  const models = parseModels(agentDraftModels.value, existing?.models)
   settings.upsertAgentConfig({
     id: editingAgentId.value ?? undefined,
     name: agentDraftName.value,
-    command: agentDraftCommand.value
+    command: agentDraftCommand.value,
+    models,
+    modelSource: models.length ? 'manual' : undefined
   })
   startAddAgentConfig()
+}
+
+function formatModels(models: ModelOption[] | undefined): string {
+  return (models ?? [])
+    .filter((model) => model.id)
+    .map((model) => (model.label && model.label !== model.id ? `${model.id} | ${model.label}` : model.id))
+    .join('\n')
+}
+
+function parseModels(input: string, existingModels: ModelOption[] = []): ModelOption[] {
+  const existingById = new Map(existingModels.map((model) => [model.id, model]))
+  const models = input
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map<ModelOption>((line) => {
+      const [idPart, labelPart] = line.split('|', 2)
+      const id = idPart.trim()
+      const label = labelPart?.trim() || id
+      return { ...existingById.get(id), id, label }
+    })
+
+  const defaultModel = existingById.get('') ?? { id: '', label: 'Default' }
+  return models.length ? [defaultModel, ...models] : []
 }
 
 function removeAgentConfig(config: AgentConfig): void {
@@ -190,6 +221,11 @@ function onFontSizeChange(v: number | undefined): void {
             v-model="agentDraftCommand"
             class="settings-text"
             :placeholder="t('settings.agent.command')"
+          />
+          <textarea
+            v-model="agentDraftModels"
+            class="settings-text settings-textarea"
+            :placeholder="t('settings.agent.models')"
           />
           <div class="agent-config-actions">
             <button class="settings-link" type="button" @click="startAddAgentConfig">
@@ -460,6 +496,13 @@ function onFontSizeChange(v: number | undefined): void {
 .settings-text:focus {
   border-color: var(--accent);
   outline: none;
+}
+
+.settings-textarea {
+  min-height: 86px;
+  padding: 8px 10px;
+  resize: vertical;
+  line-height: 1.45;
 }
 
 .agent-config-actions {

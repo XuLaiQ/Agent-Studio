@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
-import { DEFAULT_AGENT_CONFIGS, type AgentConfig, type AgentType } from '@shared/types'
+import { DEFAULT_AGENT_CONFIGS, type AgentConfig, type AgentType, type ModelOption } from '@shared/types'
 
 const FONT_SIZE_STORAGE_KEY = 'agent-studio.settings.fontSizePx'
 const LEGACY_SCALE_STORAGE_KEY = 'agent-studio.settings.fontScale'
@@ -59,14 +59,45 @@ function normalizeAgentConfig(config: Partial<AgentConfig>): AgentConfig | null 
   const id = String(config.id ?? '').trim()
   const name = String(config.name ?? '').trim()
   const command = String(config.command ?? '').trim()
+  const hasManualModels = config.modelSource === 'manual' && Array.isArray(config.models)
+  const models = normalizeModelOptions(config.models)
   if (!id || !name || !command) return null
   return {
     id,
     name,
     command,
+    ...(hasManualModels ? { models, modelSource: 'manual' as const } : {}),
     enabled: config.enabled !== false,
     builtin: Boolean(config.builtin)
   }
+}
+
+function normalizeModelOptions(models: unknown): ModelOption[] {
+  if (!Array.isArray(models)) return []
+  const normalized = models
+    .map<ModelOption | null>((model) => {
+      if (!model || typeof model !== 'object') return null
+      const rec = model as Partial<ModelOption>
+      const id = String(rec.id ?? '').trim()
+      const label = String(rec.label ?? id).trim()
+      if (!label) return null
+      return {
+        id,
+        label,
+        description: typeof rec.description === 'string' ? rec.description : undefined,
+        defaultReasoningEffort:
+          typeof rec.defaultReasoningEffort === 'string' ? rec.defaultReasoningEffort : undefined,
+        reasoningEfforts: Array.isArray(rec.reasoningEfforts) ? rec.reasoningEfforts : undefined,
+        defaultServiceTier:
+          typeof rec.defaultServiceTier === 'string' ? rec.defaultServiceTier : undefined,
+        serviceTiers: Array.isArray(rec.serviceTiers) ? rec.serviceTiers : undefined
+      }
+    })
+    .filter((model): model is ModelOption => Boolean(model))
+
+  return normalized.some((model) => !model.id)
+    ? normalized
+    : [{ id: '', label: 'Default' }, ...normalized]
 }
 
 function initialAgentConfigs(): AgentConfig[] {
@@ -77,7 +108,18 @@ function initialAgentConfigs(): AgentConfig[] {
       for (const config of DEFAULT_AGENT_CONFIGS) merged.set(config.id, { ...config })
       for (const config of saved) {
         const normalized = normalizeAgentConfig(config)
-        if (normalized) merged.set(normalized.id, normalized)
+        if (normalized) {
+          const existing = merged.get(normalized.id)
+          merged.set(normalized.id, {
+            ...existing,
+            ...normalized,
+            models: normalized.modelSource === 'manual' ? normalized.models : existing?.models,
+            modelSource:
+              normalized.modelSource === 'manual'
+                ? normalized.modelSource
+                : existing?.modelSource
+          })
+        }
       }
       const configs = [...merged.values()]
       if (configs.some((config) => config.enabled)) return configs
@@ -147,13 +189,21 @@ export const useSettingsStore = defineStore('settings', () => {
     return agentConfigs.value.some((config) => config.id === type && config.enabled)
   }
 
-  function upsertAgentConfig(input: Pick<AgentConfig, 'name' | 'command'> & { id?: AgentType }): AgentConfig | null {
+  function upsertAgentConfig(
+    input: Pick<AgentConfig, 'name' | 'command'> & {
+      id?: AgentType
+      models?: ModelOption[]
+      modelSource?: AgentConfig['modelSource']
+    }
+  ): AgentConfig | null {
     const existingId = input.id?.trim()
     const id = existingId || `custom-${Date.now().toString(36)}`
     const next = normalizeAgentConfig({
       id,
       name: input.name,
       command: input.command,
+      models: input.models,
+      modelSource: input.modelSource,
       enabled: true,
       builtin: agentConfigs.value.find((config) => config.id === id)?.builtin
     })
@@ -161,7 +211,13 @@ export const useSettingsStore = defineStore('settings', () => {
 
     const index = agentConfigs.value.findIndex((config) => config.id === id)
     if (index >= 0) {
-      agentConfigs.value[index] = { ...agentConfigs.value[index], ...next }
+      const existing = agentConfigs.value[index]
+      agentConfigs.value[index] = {
+        ...existing,
+        ...next,
+        models: next.modelSource === 'manual' ? next.models : undefined,
+        modelSource: next.modelSource
+      }
     } else {
       agentConfigs.value.push(next)
     }

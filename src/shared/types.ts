@@ -286,19 +286,11 @@ export interface AgentConfig {
   id: AgentType
   name: string
   command: string
+  models?: ModelOption[]
+  modelSource?: 'manual'
   enabled: boolean
   builtin?: boolean
 }
-
-export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = Object.entries(AGENT_COMMANDS).map(
-  ([id, config]) => ({
-    id,
-    name: config.label,
-    command: config.command,
-    enabled: true,
-    builtin: true
-  })
-)
 
 /** A selectable model for an agent. An empty `id` means "use the CLI default". */
 export interface ModelOption {
@@ -326,7 +318,7 @@ export interface ServiceTierOption {
 export interface AgentModelCatalog {
   type: AgentType
   models: ModelOption[]
-  source: 'static' | 'cli'
+  source: 'static' | 'cli' | 'api'
   error?: string
 }
 
@@ -381,6 +373,16 @@ export const AGENT_MODELS: Record<string, ModelOption[]> = {
   reasonix: [{ id: '', label: 'Default' }]
 }
 
+export const DEFAULT_AGENT_CONFIGS: AgentConfig[] = Object.entries(AGENT_COMMANDS).map(
+  ([id, config]) => ({
+    id,
+    name: config.label,
+    command: config.command,
+    enabled: true,
+    builtin: true
+  })
+)
+
 export interface AgentLaunchOptions {
   /** Model id to launch with (CLI default when empty/undefined). */
   model?: string
@@ -392,14 +394,33 @@ export interface AgentLaunchOptions {
   resumeSessionId?: string
 }
 
+function commandLooksLike(command: string | undefined, name: string): boolean {
+  if (!command) return false
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(^|[^a-z0-9_-])${escaped}(\\.cmd|\\.exe)?($|[^a-z0-9_-])`, 'i').test(command)
+}
+
+function resolveLaunchType(type: AgentType, command?: string): AgentType {
+  if (AGENT_COMMANDS[type]) return type
+  if (commandLooksLike(command, 'claude')) return 'claude'
+  if (commandLooksLike(command, 'codex')) return 'codex'
+  if (commandLooksLike(command, 'gemini')) return 'gemini'
+  if (commandLooksLike(command, 'reasonix')) return 'reasonix'
+  return type
+}
+
 /**
  * Assembles the CLI arguments (after the base command) for launching an agent
  * with an optional model and/or resumed conversation. Each CLI has its own flag
  * shape, so this is the single place that knows them.
  */
-export function buildAgentArgs(type: AgentType, opts: AgentLaunchOptions = {}): string[] {
+export function buildAgentArgs(
+  type: AgentType,
+  opts: AgentLaunchOptions = {},
+  command?: string
+): string[] {
   const { model, reasoningEffort, resumeSessionId, serviceTier } = opts
-  switch (type) {
+  switch (resolveLaunchType(type, command)) {
     case 'claude':
       return [
         ...(resumeSessionId ? ['--resume', resumeSessionId] : []),
@@ -433,9 +454,9 @@ export function buildAgentArgs(type: AgentType, opts: AgentLaunchOptions = {}): 
  * The slash command that switches the model of an already-running session
  * without restarting it, or `null` if the CLI has no such command.
  */
-export function liveModelCommand(type: AgentType, modelId: string): string | null {
+export function liveModelCommand(type: AgentType, modelId: string, command?: string): string | null {
   if (!modelId) return null
-  switch (type) {
+  switch (resolveLaunchType(type, command)) {
     case 'claude':
     case 'codex':
       return `/model ${modelId}`

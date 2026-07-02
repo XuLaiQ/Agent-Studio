@@ -31,8 +31,6 @@ import type {
   SessionListInput,
   SessionSummary,
   AgentStatus,
-  AgentModelCatalog,
-  AgentType,
   ProjectVersionStatus,
   VersionConnection,
   VersionBranchInput,
@@ -129,10 +127,6 @@ const api = {
 
   // Token usage statistics
   getTokenUsageStats: (todayOnly?: boolean): Promise<TokenUsageStats> => ipcRenderer.invoke('tokens:stats', todayOnly ?? false),
-
-  // Model catalogs
-  listModelCatalog: (type: AgentType, command?: string): Promise<AgentModelCatalog> =>
-    ipcRenderer.invoke('models:list', type, command),
 
   // PTY control
   startPty: (input: PtyStartInput): void => ipcRenderer.send('pty:start', input),

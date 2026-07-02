@@ -7,11 +7,7 @@ import { t } from '../i18n'
 import { useStudioStore } from '../stores/studio'
 import { useSettingsStore, type ThemeMode } from '../stores/settings'
 import {
-  AGENT_MODELS,
-  liveModelCommand,
   type Agent,
-  type AgentModelCatalog,
-  type ModelOption,
   type SessionSummary
 } from '@shared/types'
 
@@ -53,120 +49,9 @@ let resizeObserver: ResizeObserver | null = null
 const cleanups: Array<() => void> = []
 let started = false
 
-// ---- Model switching + conversation history (component-local) ----
-const modelCatalog = ref<AgentModelCatalog>({
-  type: props.agent.type,
-  models: AGENT_MODELS[props.agent.type] ?? [{ id: '', label: 'Default' }],
-  source: 'static'
-})
-const models = computed(() => modelCatalog.value.models)
-const selectedModel = computed<ModelOption | undefined>(
-  () =>
-    models.value.find((m) => m.id === currentModel.value) ??
-    models.value.find((m) => !m.id) ??
-    models.value[0]
-)
-const hasModelSwitch = computed(
-  () =>
-    models.value.length > 1 ||
-    reasoningEfforts.value.length > 0 ||
-    serviceTiers.value.length > 0
-)
-const currentModel = ref('')
-const currentReasoningEffort = ref('')
-const currentServiceTier = ref('')
-const modelOpen = ref(false)
 const historyOpen = ref(false)
 const sessions = ref<SessionSummary[]>([])
 const historyLoading = ref(false)
-const hasPendingLaunchSettings = ref(false)
-
-const currentModelLabel = computed(
-  () => selectedModel.value?.label ?? ''
-)
-const reasoningEfforts = computed(() => selectedModel.value?.reasoningEfforts ?? [])
-const serviceTiers = computed(() => selectedModel.value?.serviceTiers ?? [])
-const currentReasoningEffortLabel = computed(
-  () =>
-    reasoningEfforts.value.find((option) => option.id === currentReasoningEffort.value)?.label ??
-    t('terminal.default')
-)
-const currentServiceTierLabel = computed(
-  () =>
-    serviceTiers.value.find((option) => option.id === currentServiceTier.value)?.label ??
-    t('terminal.standard')
-)
-const modelButtonLabel = computed(() => {
-  const parts = [currentModelLabel.value]
-  if (reasoningEfforts.value.length) parts.push(currentReasoningEffortLabel.value)
-  if (serviceTiers.value.length) parts.push(currentServiceTierLabel.value)
-  return parts.filter(Boolean).join(' / ')
-})
-const modelButtonTitle = computed(() =>
-  hasPendingLaunchSettings.value
-    ? t('terminal.launchSettingsPending')
-    : t('terminal.model')
-)
-
-function normalizeModelSettings(): void {
-  const model = selectedModel.value
-  if (!model) return
-  if (currentModel.value && !models.value.some((m) => m.id === currentModel.value)) {
-    currentModel.value = ''
-  }
-  if (
-    currentReasoningEffort.value &&
-    !reasoningEfforts.value.some((option) => option.id === currentReasoningEffort.value)
-  ) {
-    currentReasoningEffort.value = model.defaultReasoningEffort ?? ''
-  }
-  if (
-    currentServiceTier.value &&
-    !serviceTiers.value.some((option) => option.id === currentServiceTier.value)
-  ) {
-    currentServiceTier.value = model.defaultServiceTier ?? ''
-  }
-}
-
-async function loadModelCatalog(): Promise<void> {
-  const command = settings.agentConfigOf(props.agent.type)?.command || props.agent.launchCommand
-  modelCatalog.value = await window.studio.listModelCatalog(props.agent.type, command)
-  normalizeModelSettings()
-}
-
-function selectModel(id: string): void {
-  if (id === currentModel.value) return
-  currentModel.value = id
-  normalizeModelSettings()
-
-  // Switch a live session in place when the CLI supports it; otherwise the new
-  // model just applies on the next start/resume.
-  const command = liveModelCommand(props.agent.type, id)
-  if (command && started) {
-    window.studio.writePty(props.agent.id, `${command}\r`)
-  } else if (started) {
-    hasPendingLaunchSettings.value = true
-    ElMessage.info(t('terminal.launchSettingsPending'))
-  }
-}
-
-function selectReasoningEffort(id: string): void {
-  if (id === currentReasoningEffort.value) return
-  currentReasoningEffort.value = id
-  if (started) {
-    hasPendingLaunchSettings.value = true
-    ElMessage.info(t('terminal.launchSettingsPending'))
-  }
-}
-
-function selectServiceTier(id: string): void {
-  if (id === currentServiceTier.value) return
-  currentServiceTier.value = id
-  if (started) {
-    hasPendingLaunchSettings.value = true
-    ElMessage.info(t('terminal.launchSettingsPending'))
-  }
-}
 
 async function loadSessions(): Promise<void> {
   historyLoading.value = true
@@ -182,7 +67,6 @@ async function loadSessions(): Promise<void> {
 
 function toggleHistory(): void {
   historyOpen.value = !historyOpen.value
-  modelOpen.value = false
   forwardOpen.value = false
   if (historyOpen.value) loadSessions()
 }
@@ -208,7 +92,6 @@ const otherAgents = computed(() => {
 
 function toggleForward(): void {
   forwardOpen.value = !forwardOpen.value
-  modelOpen.value = false
   historyOpen.value = false
 }
 
@@ -243,7 +126,6 @@ async function forwardTo(toAgentId: string | null): Promise<void> {
 }
 
 function closePopovers(): void {
-  modelOpen.value = false
   historyOpen.value = false
   forwardOpen.value = false
 }
@@ -262,7 +144,6 @@ function doFit(): void {
 function startSession(opts: { resumeSessionId?: string } = {}): void {
   if (started || !term) return
   started = true
-  hasPendingLaunchSettings.value = false
   window.studio.startPty({
     agentId: props.agent.id,
     cwd: props.projectPath,
@@ -270,9 +151,6 @@ function startSession(opts: { resumeSessionId?: string } = {}): void {
     launchCommand: settings.agentConfigOf(props.agent.type)?.command || props.agent.launchCommand,
     cols: term.cols || 80,
     rows: term.rows || 24,
-    model: currentModel.value || undefined,
-    reasoningEffort: currentReasoningEffort.value || undefined,
-    serviceTier: currentServiceTier.value || undefined,
     resumeSessionId: opts.resumeSessionId
   })
 }
@@ -281,7 +159,6 @@ async function attachOrStartSession(): Promise<void> {
   if (started || !term) return
   if (await window.studio.isPtyRunning(props.agent.id)) {
     started = true
-    hasPendingLaunchSettings.value = false
     return
   }
   startSession()
@@ -296,7 +173,6 @@ function pasteClipboard(): void {
 
 onMounted(() => {
   if (!host.value) return
-  loadModelCatalog()
 
   term = new Terminal({
     fontFamily: 'Consolas, "Cascadia Mono", "Courier New", monospace',
@@ -401,76 +277,7 @@ function copySelection(event: MouseEvent): void {
   <div class="term-wrap">
     <div ref="host" class="term-host" @click="term?.focus()" @contextmenu="copySelection" />
 
-    <div class="term-toolbar" :class="{ open: modelOpen || historyOpen || forwardOpen }" @click.stop>
-      <!-- Model switcher -->
-      <div v-if="hasModelSwitch" class="tool">
-        <button
-          class="tool-btn model-btn"
-          :class="{ pending: hasPendingLaunchSettings }"
-          type="button"
-          :title="modelButtonTitle"
-          @click="(modelOpen = !modelOpen), (historyOpen = false), (forwardOpen = false)"
-        >
-          {{ modelButtonLabel }}
-        </button>
-        <div v-if="modelOpen" class="popover model-popover">
-          <div class="model-section">
-            <div class="model-section-title">{{ t('terminal.model') }}</div>
-            <ul class="model-list">
-              <li
-                v-for="m in models"
-                :key="m.id || 'default'"
-                :class="{ active: m.id === currentModel }"
-                :title="m.description"
-                @click="selectModel(m.id)"
-              >
-                {{ m.label }}
-              </li>
-            </ul>
-          </div>
-          <div v-if="reasoningEfforts.length" class="model-section">
-            <div class="model-section-title">{{ t('terminal.effort') }}</div>
-            <ul class="model-list compact">
-              <li
-                :class="{ active: currentReasoningEffort === '' }"
-                @click="selectReasoningEffort('')"
-              >
-                {{ t('terminal.default') }}
-              </li>
-              <li
-                v-for="option in reasoningEfforts"
-                :key="option.id"
-                :class="{ active: option.id === currentReasoningEffort }"
-                :title="option.description"
-                @click="selectReasoningEffort(option.id)"
-              >
-                {{ option.label }}
-              </li>
-            </ul>
-          </div>
-          <div v-if="serviceTiers.length" class="model-section">
-            <div class="model-section-title">{{ t('terminal.speed') }}</div>
-            <ul class="model-list compact">
-              <li
-                :class="{ active: currentServiceTier === '' }"
-                @click="selectServiceTier('')"
-              >
-                {{ t('terminal.standard') }}
-              </li>
-              <li
-                v-for="option in serviceTiers"
-                :key="option.id"
-                :class="{ active: option.id === currentServiceTier }"
-                :title="option.description"
-                @click="selectServiceTier(option.id)"
-              >
-                {{ option.label }}
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
+    <div class="term-toolbar" :class="{ open: historyOpen || forwardOpen }" @click.stop>
       <!-- Conversation history -->
       <div class="tool">
         <button
@@ -646,18 +453,6 @@ function copySelection(event: MouseEvent): void {
   width: 15px;
   height: 15px;
 }
-.model-btn {
-  font-weight: 500;
-  max-width: min(380px, 45vw);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.model-btn.pending {
-  color: var(--accent-hover);
-  border-color: var(--accent-hover);
-}
-
 /* Popovers */
 .popover {
   position: absolute;
@@ -672,53 +467,10 @@ function copySelection(event: MouseEvent): void {
   background: rgba(18, 18, 26, 0.98);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
 }
-.model-popover {
-  width: 260px;
-  padding: 0;
-}
-.model-section {
-  padding: 7px;
-  border-bottom: 1px solid var(--border);
-}
-.model-section:last-child {
-  border-bottom: none;
-}
-.model-section-title {
-  padding: 0 1px 5px;
-  color: var(--text-dim);
-  font-size: var(--app-font-size-xs);
-}
-.model-list {
-  display: grid;
-  gap: 3px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.model-list.compact {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.model-list li {
-  padding: 5px 8px;
-  border-radius: 2px;
-  color: var(--text-dim);
-  cursor: pointer;
-  font-size: var(--app-font-size-sm);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.model-list li:hover {
-  background: rgba(157, 116, 255, 0.16);
-  color: var(--text);
-}
-.model-list li.active {
-  color: var(--text);
-  background: rgba(157, 116, 255, 0.24);
-}
-
 .history-popover {
-  width: 280px;
+  min-width: 240px;
+  max-width: min(340px, 90vw);
+  width: max-content;
   padding: 0;
   display: flex;
   flex-direction: column;

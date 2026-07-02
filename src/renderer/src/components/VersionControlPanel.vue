@@ -15,6 +15,12 @@ const emit = defineEmits<{
   (event: 'open-diff', payload: { change: VersionFileChange; staged: boolean }): void
 }>()
 
+const props = defineProps<{
+  viewMode?: 'full' | 'history'
+}>()
+
+const viewMode = computed(() => props.viewMode || 'full')
+
 const versionStore = useVersionControlStore()
 const commitMessage = ref('')
 const newBranchName = ref('')
@@ -271,7 +277,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="version-panel">
+  <section class="version-panel" :class="{ 'split-view': true }">
     <svg class="icon-sprite" aria-hidden="true">
       <symbol id="vc-graph" viewBox="0 0 16 16">
         <circle cx="4" cy="3" r="2" />
@@ -399,19 +405,19 @@ onMounted(() => {
         </button>
       </div>
 
-      <div class="group">
-        <div class="group-head">
+      <details class="group" open>
+        <summary class="group-head">
           <span>{{ t('version.staged') }} {{ versionStore.stagedChanges.length }}</span>
           <button
             v-if="versionStore.stagedChanges.length"
             class="icon-action"
             type="button"
             :title="t('version.unstageAll')"
-            @click="unstageAll"
+            @click.stop="unstageAll"
           >
             <svg><use href="#vc-minus" /></svg>
           </button>
-        </div>
+        </summary>
         <div v-if="!versionStore.stagedChanges.length" class="empty small">
           {{ t('version.noStaged') }}
         </div>
@@ -436,21 +442,21 @@ onMounted(() => {
             <svg><use href="#vc-minus" /></svg>
           </button>
         </div>
-      </div>
+      </details>
 
-      <div class="group">
-        <div class="group-head">
+      <details class="group" open>
+        <summary class="group-head">
           <span>{{ t('version.changes') }} {{ versionStore.unstagedChanges.length }}</span>
           <button
             v-if="versionStore.unstagedChanges.length"
             class="icon-action"
             type="button"
             :title="t('version.stageAll')"
-            @click="stageAll"
+            @click.stop="stageAll"
           >
             <svg><use href="#vc-plus" /></svg>
           </button>
-        </div>
+        </summary>
         <div v-if="!versionStore.unstagedChanges.length" class="empty small">
           {{ t('version.noChanges') }}
         </div>
@@ -475,7 +481,7 @@ onMounted(() => {
             <svg><use href="#vc-plus" /></svg>
           </button>
         </div>
-      </div>
+      </details>
 
       <details class="details" open>
         <summary>{{ t('version.localBranches') }} {{ activeStatus.localBranches.length }}</summary>
@@ -513,12 +519,15 @@ onMounted(() => {
         </button>
       </details>
 
-      <details class="details" open>
-        <summary>{{ t('version.commitHistory') }} {{ activeStatus.commitHistory.length }}</summary>
-        <div v-if="!activeStatus.commitHistory.length" class="empty small">
-          {{ t('version.noCommitHistory') }}
-        </div>
-        <div v-for="commit in activeStatus.commitHistory" :key="commit.hash" class="commit-item">
+      <div class="history-divider"></div>
+
+      <div class="history-container">
+        <details class="details history-section" open>
+          <summary>{{ t('version.commitHistory') }} {{ activeStatus.commitHistory.length }}</summary>
+          <div v-if="!activeStatus.commitHistory.length" class="empty small">
+            {{ t('version.noCommitHistory') }}
+          </div>
+          <div v-for="commit in activeStatus.commitHistory" :key="commit.hash" class="commit-item">
           <div
             class="commit-row"
             role="button"
@@ -576,7 +585,8 @@ onMounted(() => {
             </template>
           </div>
         </div>
-      </details>
+        </details>
+      </div>
     </template>
 
     <details class="details">
@@ -606,7 +616,15 @@ onMounted(() => {
 
 <style scoped>
 .version-panel {
-  padding: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+.version-panel.split-view {
+  display: flex;
+  flex-direction: column;
 }
 .icon-sprite {
   display: none;
@@ -802,24 +820,63 @@ onMounted(() => {
   margin-top: 8px;
 }
 .details summary,
+.group summary,
 .group-head {
+  position: relative;
   color: var(--text-dim);
   font-size: var(--app-font-size-xs);
   font-weight: 600;
   letter-spacing: 0.35px;
   text-transform: uppercase;
+  cursor: pointer;
+  user-select: none;
 }
-.details summary {
+.details summary,
+.group summary {
   min-height: 24px;
   display: flex;
   align-items: center;
-  padding: 0 12px;
-  cursor: pointer;
+  justify-content: space-between;
+  padding: 0 8px 0 12px;
+  list-style: none;
+}
+.details summary::-webkit-details-marker,
+.group summary::-webkit-details-marker {
+  display: none;
+}
+.details summary::before,
+.group summary::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%) rotate(90deg);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--text-dim);
+  transition: transform 0.2s ease;
+}
+.details[open] summary::before,
+.group[open] summary::before {
+  transform: translateY(-50%) rotate(180deg);
+}
+.group-head,
+.group summary > span:first-child,
+.details summary > span:first-child {
+  flex: 1;
+  text-align: left;
+  padding-left: 10px;
 }
 .group-head {
   justify-content: space-between;
   height: 26px;
   padding: 0 8px 0 12px;
+}
+.group summary .icon-action,
+.details summary .icon-action {
+  flex-shrink: 0;
 }
 .branch-row,
 .commit-row,
@@ -1040,6 +1097,35 @@ onMounted(() => {
   to {
     transform: rotate(360deg);
   }
+}
+
+.history-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 0;
+  flex-shrink: 0;
+}
+
+.history-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.history-section {
+  margin-top: 0 !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.history-section > div:last-child {
+  flex: 1;
+  overflow-y: auto;
 }
 
 @keyframes vc-flow-down {

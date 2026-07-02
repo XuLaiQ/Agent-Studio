@@ -391,11 +391,12 @@ function selectSidebar(view: typeof sidebarView.value): void {
               @entry-deleted="handleDeletedEntry"
             />
           </template>
-          <VersionControlPanel
-            v-else-if="sidebarView === 'sourceControl'"
-            class="source-control-sidebar"
-            @open-diff="openDiff"
-          />
+          <template v-else-if="sidebarView === 'sourceControl'">
+            <VersionControlPanel
+              class="source-control-sidebar"
+              @open-diff="openDiff"
+            />
+          </template>
           <WorkflowPanel v-else-if="sidebarView === 'workflow'" class="source-control-sidebar" />
           <OrchestratorPanel
             v-else-if="sidebarView === 'orchestrator'"
@@ -608,6 +609,8 @@ function selectSidebar(view: typeof sidebarView.value): void {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
 }
 .main {
   flex: 1;
